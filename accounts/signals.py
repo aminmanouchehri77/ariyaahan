@@ -2,6 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
+from decimal import Decimal
 
 from pricing.models import PriceObservation
 
@@ -23,11 +24,30 @@ def _notify_price_alerts(observation_id):
         profile__allow_price_notifications=True,
     ).select_related('profile')
     for alert in matching.iterator():
-        reached = (
-            observation.amount <= alert.target_amount
-            if alert.direction == PriceAlert.Direction.BELOW
-            else observation.amount >= alert.target_amount
-        )
+        if alert.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:
+            if (
+                alert.baseline_amount is None
+                or alert.baseline_location != observation.delivery_location
+                or alert.baseline_tax_included != observation.tax_included
+            ):
+                continue
+            fraction = alert.percent_change / Decimal('100')
+            threshold = (
+                alert.baseline_amount * (Decimal('1') - fraction)
+                if alert.direction == PriceAlert.Direction.BELOW
+                else alert.baseline_amount * (Decimal('1') + fraction)
+            )
+            reached = (
+                observation.amount <= threshold
+                if alert.direction == PriceAlert.Direction.BELOW
+                else observation.amount >= threshold
+            )
+        else:
+            reached = (
+                observation.amount <= alert.target_amount
+                if alert.direction == PriceAlert.Direction.BELOW
+                else observation.amount >= alert.target_amount
+            )
         if not reached:
             continue
         _, created = CustomerNotification.objects.get_or_create(
@@ -42,7 +62,10 @@ def _notify_price_alerts(observation_id):
             },
         )
         if created:
-            PriceAlert.objects.filter(pk=alert.pk).update(last_notified_at=timezone.now())
+            updates = {'last_notified_at': timezone.now()}
+            if alert.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:
+                updates['is_active'] = False
+            PriceAlert.objects.filter(pk=alert.pk).update(**updates)
 
 
 @receiver(post_save, sender=PriceObservation)

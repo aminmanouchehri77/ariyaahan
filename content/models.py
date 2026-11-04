@@ -72,6 +72,9 @@ class Article(models.Model):
     body = models.TextField('متن مقاله')
     category = models.CharField('دستهٔ محتوا', max_length=80, blank=True, db_index=True)
     tags = models.ManyToManyField(ArticleTag, verbose_name='برچسب‌ها', blank=True, related_name='articles')
+    related_products = models.ManyToManyField(
+        'catalog.Product', verbose_name='محصولات مرتبط', blank=True, related_name='related_articles',
+    )
     author_name = models.CharField('نام نویسنده', max_length=120, blank=True)
     cover_image_url = models.URLField('نشانی تصویر شاخص', max_length=500, blank=True)
     status = models.CharField('وضعیت', max_length=12, choices=Status.choices, default=Status.DRAFT, db_index=True)
@@ -170,6 +173,82 @@ class ProductQuestion(models.Model):
 
     def __str__(self):
         return f'{self.product} — {self.display_name} — {self.get_status_display()}'
+
+
+class ProductReview(models.Model):
+    RATING_CHOICES = tuple((value, f'{value} از ۵') for value in range(1, 6))
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'در انتظار بررسی'
+        APPROVED = 'approved', 'منتشرشده'
+        REJECTED = 'rejected', 'ردشده'
+
+    product = models.ForeignKey(
+        'catalog.Product', verbose_name='محصول', related_name='reviews', on_delete=models.CASCADE,
+    )
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب ثبت‌کننده', related_name='product_reviews',
+        on_delete=models.CASCADE,
+    )
+    display_name = models.CharField('نام نمایشی', max_length=80, default='مشتری تأییدشده')
+    rating = models.PositiveSmallIntegerField('امتیاز', choices=RATING_CHOICES)
+    title = models.CharField('عنوان دیدگاه', max_length=140, blank=True)
+    review = models.TextField('دیدگاه', max_length=3000)
+    status = models.CharField('وضعیت', max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='بررسی‌کننده', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reviewed_product_reviews',
+    )
+    created_at = models.DateTimeField('زمان ثبت', auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
+    published_at = models.DateTimeField('زمان انتشار', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'دیدگاه محصول'
+        verbose_name_plural = 'دیدگاه‌های محصول'
+        ordering = ('-published_at', '-pk')
+        constraints = [
+            models.UniqueConstraint(fields=('product', 'profile'), name='unique_customer_product_review'),
+            models.CheckConstraint(condition=models.Q(rating__gte=1, rating__lte=5), name='valid_product_review_rating'),
+        ]
+        indexes = [models.Index(fields=('product', 'status', '-published_at'), name='product_review_pub_idx')]
+
+    def __str__(self):
+        return f'{self.product} — {self.rating}/5 — {self.get_status_display()}'
+
+
+class ArticleComment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'در انتظار بررسی'
+        APPROVED = 'approved', 'منتشرشده'
+        REJECTED = 'rejected', 'ردشده'
+
+    article = models.ForeignKey(
+        Article, verbose_name='مقاله', related_name='comments', on_delete=models.CASCADE,
+    )
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب ثبت‌کننده', related_name='article_comments',
+        on_delete=models.CASCADE,
+    )
+    display_name = models.CharField('نام نمایشی', max_length=80, default='مشتری تأییدشده')
+    comment = models.TextField('دیدگاه', max_length=2000)
+    status = models.CharField('وضعیت', max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='بررسی‌کننده', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reviewed_article_comments',
+    )
+    created_at = models.DateTimeField('زمان ثبت', auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
+    published_at = models.DateTimeField('زمان انتشار', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'دیدگاه مقاله'
+        verbose_name_plural = 'دیدگاه‌های مقاله'
+        ordering = ('published_at', 'pk')
+        indexes = [models.Index(fields=('article', 'status', 'published_at'), name='article_comment_pub_idx')]
+
+    def __str__(self):
+        return f'{self.article} — {self.display_name} — {self.get_status_display()}'
 
 
 class MediaItem(models.Model):

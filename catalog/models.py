@@ -136,3 +136,40 @@ class ProductVariant(models.Model):
 
     def __str__(self):
         return f'{self.product.name} — {self.name}'
+
+
+class SavedComparison(models.Model):
+    profile = models.OneToOneField(
+        'accounts.CustomerProfile', verbose_name='پروفایل مشتری', related_name='saved_comparison',
+        on_delete=models.CASCADE,
+    )
+    updated_at = models.DateTimeField('آخرین تغییر', auto_now=True)
+
+    class Meta:
+        verbose_name = 'فهرست مقایسهٔ ذخیره‌شده'
+        verbose_name_plural = 'فهرست‌های مقایسهٔ ذخیره‌شده'
+
+    def __str__(self):
+        return f'مقایسهٔ ذخیره‌شدهٔ {self.profile}'
+
+
+class SavedComparisonItem(models.Model):
+    comparison = models.ForeignKey(
+        SavedComparison, verbose_name='فهرست مقایسه', related_name='items', on_delete=models.CASCADE,
+    )
+    variant = models.ForeignKey(
+        ProductVariant, verbose_name='گونهٔ کالا', related_name='saved_comparison_items', on_delete=models.CASCADE,
+    )
+    position = models.PositiveSmallIntegerField('ترتیب نمایش', default=0)
+    added_at = models.DateTimeField('زمان افزودن', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'کالای فهرست مقایسه'
+        verbose_name_plural = 'کالاهای فهرست مقایسه'
+        ordering = ('position', 'added_at', 'pk')
+        constraints = [
+            models.UniqueConstraint(fields=('comparison', 'variant'), name='unique_saved_compare_variant'),
+        ]
+
+    def __str__(self):
+        return f'{self.comparison} — {self.variant}'

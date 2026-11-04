@@ -2,7 +2,7 @@ from django.conf import settings
 from decimal import Decimal
 from hashlib import sha256
 
-from django.core.validators import MinValueValidator, RegexValidator
+from django.core.validators import RegexValidator
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -71,9 +71,13 @@ class CustomerAddress(models.Model):
 
 
 class PriceAlert(models.Model):
+    class ConditionType(models.TextChoices):
+        TARGET = 'target', 'رسیدن به قیمت هدف'
+        PERCENT_CHANGE = 'percent', 'تغییر درصدی از قیمت مبنا'
+
     class Direction(models.TextChoices):
-        BELOW = 'below', 'وقتی قیمت به این مبلغ یا کمتر رسید'
-        ABOVE = 'above', 'وقتی قیمت به این مبلغ یا بیشتر رسید'
+        BELOW = 'below', 'کاهش قیمت'
+        ABOVE = 'above', 'افزایش قیمت'
 
     CURRENCY_CHOICES = (('IRR', 'ریال'), ('IRT', 'تومان'), ('USD', 'دلار آمریکا'))
     BASIS_CHOICES = (('kg', 'کیلوگرم'), ('ton', 'تن'), ('piece', 'شاخه / عدد'), ('bundle', 'بندیل'), ('sheet', 'شیت'), ('meter', 'متر'))
@@ -84,10 +88,18 @@ class PriceAlert(models.Model):
     variant = models.ForeignKey(
         'catalog.ProductVariant', verbose_name='گونهٔ محصول', related_name='price_alerts', on_delete=models.CASCADE,
     )
+    condition_type = models.CharField(
+        'نوع شرط', max_length=12, choices=ConditionType.choices, default=ConditionType.TARGET,
+    )
     direction = models.CharField('شرط اعلان', max_length=8, choices=Direction.choices)
     target_amount = models.DecimalField(
-        'مبلغ هدف', max_digits=18, decimal_places=0, validators=[MinValueValidator(Decimal('1'))],
+        'مبلغ هدف', max_digits=18, decimal_places=0, default=Decimal('0'),
     )
+    percent_change = models.DecimalField('درصد تغییر', max_digits=5, decimal_places=2, default=Decimal('0'))
+    baseline_amount = models.DecimalField('قیمت مبنا', max_digits=18, decimal_places=0, null=True, blank=True)
+    baseline_location = models.CharField('محل قیمت مبنا', max_length=140, blank=True)
+    baseline_tax_included = models.BooleanField('مالیات قیمت مبنا', null=True, blank=True)
+    baseline_observed_at = models.DateTimeField('زمان قیمت مبنا', null=True, blank=True)
     currency = models.CharField('ارز', max_length=3, choices=CURRENCY_CHOICES, default='IRT')
     price_basis = models.CharField('مبنای قیمت', max_length=12, choices=BASIS_CHOICES)
     is_active = models.BooleanField('فعال', default=True)
@@ -100,8 +112,22 @@ class PriceAlert(models.Model):
         ordering = ('-created_at',)
         constraints = [
             models.UniqueConstraint(
-                fields=('profile', 'variant', 'direction', 'target_amount', 'currency', 'price_basis'),
+                fields=(
+                    'profile', 'variant', 'condition_type', 'direction', 'target_amount',
+                    'percent_change', 'currency', 'price_basis',
+                ),
                 name='unique_customer_price_alert',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(condition_type='target', target_amount__gte=1, percent_change=0)
+                    | models.Q(
+                        condition_type='percent', target_amount=0,
+                        percent_change__gt=0, percent_change__lte=100,
+                        baseline_amount__gt=0, baseline_observed_at__isnull=False,
+                    )
+                ),
+                name='valid_customer_price_alert_condition',
             ),
         ]
         indexes = [models.Index(fields=('variant', 'is_active'), name='alert_variant_active_idx')]

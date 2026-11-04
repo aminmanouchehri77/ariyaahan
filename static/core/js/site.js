@@ -19,6 +19,80 @@
 })();
 
 (() => {
+  const filters = document.querySelector('.filter-disclosure');
+  if (!filters) return;
+  const mobile = window.matchMedia('(max-width: 760px)');
+  const syncViewport = () => {
+    filters.open = !mobile.matches;
+    document.body.classList.remove('filter-drawer-open');
+  };
+  const syncDrawer = () => {
+    document.body.classList.toggle('filter-drawer-open', mobile.matches && filters.open);
+  };
+  syncViewport();
+  filters.addEventListener('toggle', syncDrawer);
+  mobile.addEventListener('change', syncViewport);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobile.matches && filters.open) filters.open = false;
+  });
+})();
+
+(() => {
+  const form = document.querySelector('[data-price-alert-form]');
+  const condition = form?.querySelector('[name="condition_type"]');
+  if (!condition) return;
+  const amount = form.querySelector('[data-alert-field="target_amount"]');
+  const percent = form.querySelector('[data-alert-field="percent_change"]');
+  const update = () => {
+    const isPercent = condition.value === 'percent';
+    if (amount) amount.hidden = isPercent;
+    if (percent) percent.hidden = !isPercent;
+  };
+  condition.addEventListener('change', update);
+  update();
+})();
+
+(() => {
+  const shareButton = document.querySelector('[data-share-button]');
+  const printButton = document.querySelector('[data-print-button]');
+  const status = document.querySelector('[data-share-status]');
+  const fallback = document.querySelector('.share-url-fallback');
+  if (shareButton) {
+    shareButton.hidden = false;
+    shareButton.addEventListener('click', async () => {
+      const title = shareButton.dataset.shareTitle || document.title;
+      const url = shareButton.dataset.shareUrl || window.location.href;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, url });
+        } else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          if (status) status.textContent = 'پیوند صفحه کپی شد.';
+        } else if (fallback) {
+          fallback.hidden = false;
+          fallback.focus();
+          fallback.select();
+          if (status) status.textContent = 'پیوند را کپی کنید.';
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          if (fallback) {
+            fallback.hidden = false;
+            fallback.focus();
+            fallback.select();
+          }
+          if (status) status.textContent = 'پیوند صفحه آمادهٔ کپی است.';
+        }
+      }
+    });
+  }
+  if (printButton) {
+    printButton.hidden = false;
+    printButton.addEventListener('click', () => window.print());
+  }
+})();
+
+(() => {
   const input = document.querySelector('#site-search');
   const list = document.querySelector('#search-suggestions');
   if (!input || !list) return;

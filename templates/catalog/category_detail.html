@@ -7,6 +7,8 @@
 {% block content %}
 <section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'catalog:category_list' %}">دسته‌بندی کالا</a><span>/</span><span>{{ category.name }}</span></nav><p class="eyebrow eyebrow--dark">فهرست قیمت و مشخصات</p><h1>{{ category.name }}</h1><p>{{ category.description|default:'گونه‌های محصول، مشخصات و قیمت ثبت‌شده در این دسته را بررسی کنید.' }}</p></div></section>
 <section class="section content-section"><div class="container">
+  <details class="filter-disclosure" open>
+    <summary><span>فیلتر کالا</span><small>مشخصات، قیمت و موجودی</small></summary>
   <form class="filter-panel category-filter-form" method="get" action="{{ request.path }}">
     <div class="filter-panel__intro"><strong>فیلتر کالا</strong><span>فیلترها و ترتیب نمایش در نشانی صفحه حفظ می‌شوند.</span></div>
     <div class="category-filter-grid">
@@ -14,6 +16,7 @@
     </div>
     <div class="filter-actions"><button class="button button--navy" type="submit">اعمال فیلتر</button>{% if has_active_filters %}<a class="button button--text" href="{{ request.path }}">پاک‌کردن فیلترها</a>{% endif %}<a class="button button--outline" href="{% url 'catalog:compare' %}">مقایسهٔ کالاها ({{ compare_count|fa_digits }})</a></div>
   </form>
+  </details>
   <div class="results-heading"><h2>محصولات {{ category.name }}</h2><span>{{ page_obj.paginator.count|fa_digits }} گونه</span></div>
   {% if page_obj.object_list %}
   <div class="market-table-wrap">

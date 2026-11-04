@@ -3,6 +3,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -10,8 +11,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from core.seo import breadcrumb_schema
-from .forms import CompanyRequestForm, ProductQuestionForm
-from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion
+from .forms import ArticleCommentForm, CompanyRequestForm, ProductQuestionForm, ProductReviewForm
+from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion, ProductReview
 
 
 PAGE_SIZE = 12
@@ -112,7 +113,7 @@ def article_list(request):
 
 def article_detail(request, slug):
     article = get_object_or_404(
-        Article.objects.prefetch_related('tags'),
+        Article.objects.prefetch_related('tags', 'related_products'),
         slug=slug,
         status=Article.Status.PUBLISHED,
         published_at__lte=timezone.now(),
@@ -131,8 +132,19 @@ def article_detail(request, slug):
     }
     if article.cover_image_url:
         schema['image'] = [article.cover_image_url]
+    from accounts.models import CustomerProfile
+
+    profile = CustomerProfile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
+    comments = ArticleComment.objects.filter(
+        article=article,
+        status=ArticleComment.Status.APPROVED,
+    ).order_by('published_at', 'pk')[:50]
     return render(request, 'content/article_detail.html', {
         'article': article,
+        'related_products': article.related_products.filter(is_active=True, category__is_active=True),
+        'article_comments': comments,
+        'article_comment_form': ArticleCommentForm() if profile else None,
+        'comment_account_missing': request.user.is_authenticated and profile is None,
         'article_schema': _json_ld(schema),
         'breadcrumb_schema': breadcrumb_schema(request, [
             ('خانه', '/'), ('مجله', reverse('content:article_list')),
@@ -255,3 +267,57 @@ def product_question_submit(request, slug):
     else:
         messages.error(request, 'پرسش ثبت نشد؛ موارد فرم را بررسی کنید.')
     return redirect(f'{product.get_absolute_url()}#product-questions')
+
+
+@login_required
+@require_http_methods(['POST'])
+def product_review_submit(request, slug):
+    from accounts.models import CustomerProfile
+    from catalog.models import Product
+
+    product = get_object_or_404(Product, slug=slug, is_active=True, category__is_active=True)
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if not profile:
+        messages.error(request, 'برای ثبت دیدگاه، حساب مشتری تأییدشده لازم است.')
+        return redirect(product.get_absolute_url())
+    form = ProductReviewForm(request.POST)
+    if form.is_valid():
+        review = form.save(commit=False)
+        review.product = product
+        review.profile = profile
+        review.display_name = (profile.full_name or 'مشتری تأییدشده').strip()[:80]
+        try:
+            with transaction.atomic():
+                review.save()
+        except IntegrityError:
+            messages.error(request, 'برای این کالا از حساب شما قبلاً دیدگاهی ثبت شده است.')
+        else:
+            messages.success(request, 'دیدگاه شما ثبت شد و پس از بازبینی منتشر می‌شود.')
+    else:
+        messages.error(request, 'دیدگاه ثبت نشد؛ امتیاز و متن را بررسی کنید.')
+    return redirect(f'{product.get_absolute_url()}#product-reviews')
+
+
+@login_required
+@require_http_methods(['POST'])
+def article_comment_submit(request, slug):
+    from accounts.models import CustomerProfile
+
+    article = get_object_or_404(
+        Article, slug=slug, status=Article.Status.PUBLISHED, published_at__lte=timezone.now(),
+    )
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if not profile:
+        messages.error(request, 'برای ثبت دیدگاه، حساب مشتری تأییدشده لازم است.')
+        return redirect(article.get_absolute_url())
+    form = ArticleCommentForm(request.POST)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.article = article
+        comment.profile = profile
+        comment.display_name = (profile.full_name or 'مشتری تأییدشده').strip()[:80]
+        comment.save()
+        messages.success(request, 'دیدگاه شما ثبت شد و پس از بازبینی منتشر می‌شود.')
+    else:
+        messages.error(request, 'دیدگاه ثبت نشد؛ متن را بررسی کنید.')
+    return redirect(f'{article.get_absolute_url()}#article-comments')

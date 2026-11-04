@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion
+from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion, ProductReview
 
 
 @admin.register(CompanyPage)
@@ -28,7 +28,7 @@ class ArticleAdmin(admin.ModelAdmin):
     list_filter = ('status', 'category', 'published_at', 'tags')
     search_fields = ('title', 'slug', 'excerpt', 'body', 'author_name')
     prepopulated_fields = {'slug': ('title',)}
-    filter_horizontal = ('tags',)
+    filter_horizontal = ('tags', 'related_products')
     readonly_fields = ('created_at', 'updated_at')
     date_hierarchy = 'published_at'
 
@@ -107,5 +107,37 @@ class ProductQuestionAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.reviewer = request.user
         if obj.status in (ProductQuestion.Status.PUBLISHED, ProductQuestion.Status.ANSWERED) and not obj.published_at:
+            obj.published_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ProductReview)
+class ProductReviewAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'product', 'display_name', 'rating', 'status', 'reviewer', 'published_at')
+    list_filter = ('status', 'rating', 'created_at', 'published_at')
+    search_fields = ('product__name', 'display_name', 'title', 'review')
+    readonly_fields = ('product', 'profile', 'display_name', 'rating', 'title', 'review', 'reviewer', 'created_at', 'updated_at', 'published_at')
+    date_hierarchy = 'created_at'
+    fields = ('product', 'profile', 'display_name', 'rating', 'title', 'review', 'status', 'reviewer', 'published_at', 'created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        obj.reviewer = request.user
+        if obj.status == ProductReview.Status.APPROVED and not obj.published_at:
+            obj.published_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ArticleComment)
+class ArticleCommentAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'article', 'display_name', 'status', 'reviewer', 'published_at')
+    list_filter = ('status', 'created_at', 'published_at')
+    search_fields = ('article__title', 'display_name', 'comment')
+    readonly_fields = ('article', 'profile', 'display_name', 'comment', 'reviewer', 'created_at', 'updated_at', 'published_at')
+    date_hierarchy = 'created_at'
+    fields = ('article', 'profile', 'display_name', 'comment', 'status', 'reviewer', 'published_at', 'created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        obj.reviewer = request.user
+        if obj.status == ArticleComment.Status.APPROVED and not obj.published_at:
             obj.published_at = timezone.now()
         super().save_model(request, obj, form, change)

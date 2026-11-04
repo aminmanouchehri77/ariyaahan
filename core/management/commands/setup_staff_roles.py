@@ -11,11 +11,14 @@ ROLE_MODELS = {
         'pricing': ('priceobservation', 'pricereviewevent', 'inventorylocation', 'stockobservation', 'shippingrate'),
     },
     'تحریریه محتوا': {
-        'content': ('companypage', 'article', 'articletag', 'mediaitem', 'faq', 'marketnews', 'productquestion'),
+        'content': (
+            'companypage', 'article', 'articletag', 'mediaitem', 'faq', 'marketnews',
+            'productquestion', 'productreview', 'articlecomment',
+        ),
     },
     'پشتیبانی مشتری': {
         'inquiries': ('inquiry',),
-        'content': ('companyrequest',),
+        'content': ('companyrequest', 'productquestion', 'productreview'),
         'marketplace': ('marketplacelisting',),
         'accounts': ('customerprofile', 'customeraddress', 'customernotification'),
     },

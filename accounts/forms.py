@@ -2,9 +2,12 @@ import re
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.utils import timezone
 
 from catalog.models import ProductVariant
 from core.phone import normalize_iran_mobile
+from pricing.models import PriceObservation
 from .models import CustomerAddress, CustomerProfile, PriceAlert
 
 
@@ -114,14 +117,24 @@ class PriceAlertForm(forms.ModelForm):
         label='موافقم اعلان هشدار قیمت در حساب کاربری‌ام ثبت شود.', required=True,
     )
     variant = ActiveVariantField(queryset=ProductVariant.objects.none(), label='کالا')
+    target_amount = forms.DecimalField(
+        label='مبلغ هدف', required=False, min_value=1, max_digits=18, decimal_places=0,
+        widget=forms.NumberInput(attrs={'min': '1', 'step': '1', 'inputmode': 'numeric'}),
+    )
+    percent_change = forms.DecimalField(
+        label='درصد تغییر از قیمت مبنا', required=False, min_value='0.01', max_value='100',
+        max_digits=5, decimal_places=2,
+        widget=forms.NumberInput(attrs={'min': '0.01', 'max': '100', 'step': '0.01', 'inputmode': 'decimal'}),
+    )
 
     class Meta:
         model = PriceAlert
-        fields = ('variant', 'direction', 'target_amount', 'currency', 'price_basis')
-        widgets = {'target_amount': forms.NumberInput(attrs={'min': '1', 'step': '1', 'inputmode': 'numeric'})}
+        fields = ('variant', 'condition_type', 'direction', 'target_amount', 'percent_change', 'currency', 'price_basis')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields.pop('consent', None)
         self.fields['variant'].queryset = ProductVariant.objects.filter(
             is_active=True, product__is_active=True, product__category__is_active=True,
         ).select_related('product', 'manufacturer').order_by('product__name', 'sort_order', 'name')
@@ -131,6 +144,40 @@ class PriceAlertForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         variant = cleaned.get('variant')
+        condition_type = cleaned.get('condition_type')
         if variant and cleaned.get('price_basis') and cleaned['price_basis'] != variant.unit:
             self.add_error('price_basis', 'واحد مبنای هشدار باید با واحد فروش گونهٔ انتخاب‌شده یکسان باشد.')
+        if condition_type == PriceAlert.ConditionType.TARGET:
+            if not cleaned.get('target_amount'):
+                self.add_error('target_amount', 'مبلغ هدف را وارد کنید.')
+            self._errors.pop('percent_change', None)
+            cleaned['percent_change'] = 0
+        elif condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:
+            if not cleaned.get('percent_change'):
+                self.add_error('percent_change', 'درصد تغییر را بین ۰٫۰۱ تا ۱۰۰ وارد کنید.')
+            self._errors.pop('target_amount', None)
+            cleaned['target_amount'] = 0
+            keeping_baseline = (
+                self.instance.pk
+                and self.instance.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE
+                and variant is not None
+                and variant.pk == self.instance.variant_id
+                and cleaned.get('currency') == self.instance.currency
+                and cleaned.get('price_basis') == self.instance.price_basis
+            )
+            if not keeping_baseline and variant and cleaned.get('currency') and cleaned.get('price_basis') == variant.unit:
+                self.baseline_observation = PriceObservation.objects.filter(
+                    variant=variant,
+                    currency=cleaned['currency'],
+                    price_basis=cleaned['price_basis'],
+                    status=PriceObservation.Status.APPROVED,
+                    is_available=True,
+                ).filter(
+                    Q(valid_until__isnull=True) | Q(valid_until__gt=timezone.now()),
+                ).order_by('-observed_at', '-pk').first()
+                if not self.baseline_observation:
+                    self.add_error(
+                        'variant',
+                        'برای هشدار درصدی، قیمت تأییدشده و معتبر با همین ارز و واحد باید موجود باشد.',
+                    )
         return cleaned

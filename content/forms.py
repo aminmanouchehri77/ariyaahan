@@ -2,7 +2,7 @@ from django import forms
 
 from core.phone import normalize_iran_mobile
 
-from .models import CompanyRequest, ProductQuestion
+from .models import ArticleComment, CompanyRequest, ProductQuestion, ProductReview
 
 
 class CompanyRequestForm(forms.ModelForm):
@@ -78,4 +78,56 @@ class ProductQuestionForm(forms.ModelForm):
         cleaned = super().clean()
         if cleaned.get('website'):
             raise forms.ValidationError('پرسش ثبت نشد.')
+        return cleaned
+
+
+class ProductReviewForm(forms.ModelForm):
+    consent = forms.BooleanField(
+        label='موافقم دیدگاهم پس از بازبینی با نام نمایشی منتشر شود.', required=True,
+    )
+    website = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    class Meta:
+        model = ProductReview
+        fields = ('rating', 'title', 'review')
+        widgets = {
+            'rating': forms.Select(choices=tuple((value, f'{value} از ۵') for value in range(1, 6))),
+            'title': forms.TextInput(attrs={'maxlength': 140}),
+            'review': forms.Textarea(attrs={'rows': 5, 'maxlength': 3000}),
+        }
+        labels = {'rating': 'امتیاز', 'title': 'عنوان (اختیاری)', 'review': 'دیدگاه شما'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('website'):
+            raise forms.ValidationError('دیدگاه ثبت نشد.')
+        return cleaned
+
+
+class ArticleCommentForm(forms.ModelForm):
+    consent = forms.BooleanField(
+        label='موافقم دیدگاهم پس از بازبینی با نام نمایشی منتشر شود.', required=True,
+    )
+    website = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    class Meta:
+        model = ArticleComment
+        fields = ('comment',)
+        widgets = {'comment': forms.Textarea(attrs={'rows': 4, 'maxlength': 2000})}
+        labels = {'comment': 'دیدگاه شما'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('website'):
+            raise forms.ValidationError('دیدگاه ثبت نشد.')
         return cleaned

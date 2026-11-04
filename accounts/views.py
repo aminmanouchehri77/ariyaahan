@@ -3,9 +3,11 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
@@ -15,6 +17,7 @@ import json
 from urllib.parse import urlsplit
 
 from orders.cart import Cart
+from pricing.models import PriceObservation
 
 from .forms import (
     CustomerAddressForm,
@@ -120,6 +123,11 @@ def verify_view(request):
             next_url = _safe_next_url(request, request.session.pop(PENDING_NEXT_SESSION_KEY, ''))
             request.session.pop(PENDING_MOBILE_SESSION_KEY, None)
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            profile = CustomerProfile.objects.filter(user=user).first()
+            if profile:
+                from catalog.compare import merge_session_comparison
+
+                merge_session_comparison(profile, request.session)
             messages.success(request, 'با موفقیت وارد حساب خود شدید.')
             return redirect(next_url)
 
@@ -244,10 +252,13 @@ def price_alerts_view(request):
     if not profile:
         messages.error(request, 'برای ثبت هشدار قیمت به حساب مشتری تأییدشده نیاز است.')
         return redirect('accounts:profile')
-    form = PriceAlertForm(request.POST or None)
+    form = PriceAlertForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST' and form.is_valid():
         alert = form.save(commit=False)
         alert.profile = profile
+        baseline = getattr(form, 'baseline_observation', None)
+        if baseline:
+            _set_price_alert_baseline(alert, baseline)
         try:
             alert.save()
         except IntegrityError:
@@ -263,6 +274,78 @@ def price_alerts_view(request):
         'vapid_public_key': settings.VAPID_PUBLIC_KEY,
         'push_delivery_enabled': settings.PUSH_DELIVERY_ENABLED,
     })
+
+
+def _set_price_alert_baseline(alert, observation):
+    alert.baseline_amount = observation.amount
+    alert.baseline_location = observation.delivery_location
+    alert.baseline_tax_included = observation.tax_included
+    alert.baseline_observed_at = observation.observed_at
+
+
+def _latest_alert_baseline(alert):
+    return PriceObservation.objects.filter(
+        variant=alert.variant,
+        currency=alert.currency,
+        price_basis=alert.price_basis,
+        status=PriceObservation.Status.APPROVED,
+        is_available=True,
+    ).filter(
+        Q(valid_until__isnull=True) | Q(valid_until__gt=timezone.now()),
+    ).order_by('-observed_at', '-pk').first()
+
+
+@login_required
+@never_cache
+@require_http_methods(['GET', 'POST'])
+def price_alert_edit(request, alert_id):
+    profile = get_object_or_404(CustomerProfile, user=request.user)
+    alert = get_object_or_404(PriceAlert, pk=alert_id, profile=profile)
+    form = PriceAlertForm(request.POST if request.method == 'POST' else None, instance=alert)
+    if request.method == 'POST' and form.is_valid():
+        updated = form.save(commit=False)
+        baseline = getattr(form, 'baseline_observation', None)
+        if baseline:
+            _set_price_alert_baseline(updated, baseline)
+        elif updated.condition_type == PriceAlert.ConditionType.TARGET:
+            updated.baseline_amount = None
+            updated.baseline_location = ''
+            updated.baseline_tax_included = None
+            updated.baseline_observed_at = None
+        try:
+            updated.save()
+        except IntegrityError:
+            form.add_error(None, 'هشدار مشابهی با همین شرط از قبل ثبت شده است.')
+        else:
+            messages.success(request, 'هشدار قیمت ویرایش شد.')
+            return redirect('accounts:price_alerts')
+    return render(request, 'accounts/price_alerts.html', {
+        'form': form,
+        'editing_alert': alert,
+        'alerts': profile.price_alerts.select_related('variant__product').all(),
+        'vapid_public_key': settings.VAPID_PUBLIC_KEY,
+        'push_delivery_enabled': settings.PUSH_DELIVERY_ENABLED,
+    })
+
+
+@login_required
+@never_cache
+@require_POST
+def price_alert_toggle(request, alert_id):
+    profile = get_object_or_404(CustomerProfile, user=request.user)
+    alert = get_object_or_404(PriceAlert, pk=alert_id, profile=profile)
+    if not alert.is_active and alert.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:
+        baseline = _latest_alert_baseline(alert)
+        if not baseline:
+            messages.error(request, 'برای فعال‌سازی دوباره، قیمت تأییدشده و معتبر با همین ارز و واحد لازم است.')
+            return redirect('accounts:price_alerts')
+        _set_price_alert_baseline(alert, baseline)
+    alert.is_active = not alert.is_active
+    alert.save(update_fields=(
+        'is_active', 'baseline_amount', 'baseline_location', 'baseline_tax_included', 'baseline_observed_at',
+    ))
+    messages.success(request, 'هشدار فعال شد.' if alert.is_active else 'هشدار متوقف شد.')
+    return redirect('accounts:price_alerts')
 
 
 @login_required

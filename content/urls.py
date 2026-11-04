@@ -6,6 +6,8 @@ app_name = 'content'
 
 urlpatterns = [
     path('product/<slug:slug>/questions/', views.product_question_submit, name='product_question_submit'),
+    path('product/<slug:slug>/reviews/', views.product_review_submit, name='product_review_submit'),
+    path('articles/<slug:slug>/comments/', views.article_comment_submit, name='article_comment_submit'),
     path('about/', views.company_page, {'kind': 'about'}, name='about'),
     path('export/', views.company_request, {'kind': 'export'}, name='export'),
     path('careers/', views.company_request, {'kind': 'career'}, name='careers'),
