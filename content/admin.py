@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import CustomerNotification
 from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion, ProductReview
 
 
@@ -65,16 +67,28 @@ class CompanyRequestAdmin(admin.ModelAdmin):
     list_display = ('created_at', 'kind', 'name', 'mobile', 'subject', 'status', 'assigned_to')
     list_filter = ('kind', 'status', 'created_at')
     search_fields = ('public_id', 'name', 'mobile', 'email', 'company_name', 'subject', 'destination_country')
-    readonly_fields = ('public_id', 'consent', 'source_path', 'created_at', 'updated_at')
+    readonly_fields = ('public_id', 'profile', 'consent', 'source_path', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'
     list_per_page = 30
     fieldsets = (
         ('درخواست', {
-            'fields': ('public_id', 'kind', 'status', 'name', 'mobile', 'email', 'company_name',
+            'fields': ('public_id', 'profile', 'kind', 'status', 'name', 'mobile', 'email', 'company_name',
                        'subject', 'destination_country', 'product_interest', 'experience_years', 'message', 'consent'),
         }),
         ('پیگیری داخلی', {'fields': ('assigned_to', 'admin_note', 'source_path', 'created_at', 'updated_at')}),
     )
+
+    def save_model(self, request, obj, form, change):
+        old_status = type(obj).objects.filter(pk=obj.pk).values_list('status', flat=True).first() if change else None
+        super().save_model(request, obj, form, change)
+        if change and old_status != obj.status and obj.profile_id:
+            CustomerNotification.objects.create(
+                profile=obj.profile,
+                kind=CustomerNotification.Kind.SYSTEM,
+                title='وضعیت درخواست شما تغییر کرد',
+                body=f'{obj.get_kind_display()}: {obj.get_status_display()}',
+                target_url=reverse('content:company_request_status', kwargs={'public_id': obj.public_id}),
+            )
 
 
 @admin.register(MarketNews)

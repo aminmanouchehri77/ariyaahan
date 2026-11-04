@@ -2,8 +2,10 @@ import re
 
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
+from accounts.models import CustomerProfile
 from catalog.models import ProductVariant
 from marketplace.models import MarketplaceListing
 
@@ -53,8 +55,12 @@ def _inquiry_page(request, kind):
         inquiry = form.save(commit=False)
         inquiry.kind = kind
         inquiry.source_path = request.get_full_path()[:255]
+        if request.user.is_authenticated:
+            inquiry.profile = CustomerProfile.objects.filter(
+                user=request.user, mobile=inquiry.mobile,
+            ).first()
         inquiry.save()
-        return redirect(f'{request.path}?sent=1')
+        return redirect('inquiries:status', public_id=inquiry.public_id)
 
     return render(request, 'inquiries/form.html', {
         'form': form,
@@ -73,3 +79,13 @@ def quote_request(request):
 @require_http_methods(['GET', 'POST'])
 def contact(request):
     return _inquiry_page(request, Inquiry.Kind.CONTACT)
+
+
+@never_cache
+def inquiry_status(request, public_id):
+    inquiry = get_object_or_404(Inquiry, public_id=public_id)
+    response = render(request, 'inquiries/status.html', {'inquiry': inquiry})
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    response['Referrer-Policy'] = 'no-referrer'
+    return response

@@ -10,6 +10,7 @@ urlpatterns = [
     path('resend/', views.resend_view, name='resend'),
     path('logout/', views.logout_view, name='logout'),
     path('orders/', views.orders_view, name='orders'),
+    path('requests/', views.requests_view, name='requests'),
     path('addresses/', views.addresses_view, name='addresses'),
     path('addresses/add/', views.address_add, name='address_add'),
     path('addresses/<int:address_id>/edit/', views.address_edit, name='address_edit'),

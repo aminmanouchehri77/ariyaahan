@@ -191,6 +191,40 @@ def orders_view(request):
 
 @login_required
 @never_cache
+def requests_view(request):
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    tracked_requests = []
+    if profile:
+        for record in profile.inquiries.all():
+            tracked_requests.append({
+                'type': record.get_kind_display(),
+                'status': record.get_status_display(),
+                'created_at': record.created_at,
+                'updated_at': record.updated_at,
+                'url': reverse('inquiries:status', kwargs={'public_id': record.public_id}),
+            })
+        for record in profile.company_requests.all():
+            tracked_requests.append({
+                'type': record.get_kind_display(),
+                'status': record.get_status_display(),
+                'created_at': record.created_at,
+                'updated_at': record.updated_at,
+                'url': reverse('content:company_request_status', kwargs={'public_id': record.public_id}),
+            })
+        for record in profile.marketplace_listings.all():
+            tracked_requests.append({
+                'type': f'آگهی تالار: {record.get_kind_display()}',
+                'status': record.get_status_display(),
+                'created_at': record.created_at,
+                'updated_at': record.updated_at,
+                'url': reverse('marketplace:listing_status', kwargs={'public_id': record.public_id}),
+            })
+    tracked_requests.sort(key=lambda item: item['created_at'], reverse=True)
+    return render(request, 'accounts/requests.html', {'tracked_requests': tracked_requests})
+
+
+@login_required
+@never_cache
 def addresses_view(request):
     profile = CustomerProfile.objects.filter(user=request.user).first()
     addresses = profile.addresses.all() if profile else []

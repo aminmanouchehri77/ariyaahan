@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}پیگیری درخواست | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}وضعیت درخواست ثبت‌شدهٔ خود را در آهن‌آلات آریا پیگیری کنید.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه">
+      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
+      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
+      <span>پیگیری درخواست</span>
+    </nav>
+    <p class="eyebrow eyebrow--dark">پیگیری خصوصی</p>
+    <h1>وضعیت درخواست شما</h1>
+    <p>شناسهٔ پیگیری: <strong dir="ltr">{{ inquiry.public_id }}</strong></p>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container narrow-container">
+    <div class="result-card">
+      <dl class="spec-grid">
+        <div><dt>نوع درخواست</dt><dd>{{ inquiry.get_kind_display }}</dd></div>
+        <div><dt>وضعیت</dt><dd>{{ inquiry.get_status_display }}</dd></div>
+        <div><dt>زمان ثبت</dt><dd>{{ inquiry.created_at|jalali_datetime }}</dd></div>
+        <div><dt>آخرین به‌روزرسانی</dt><dd>{{ inquiry.updated_at|jalali_datetime }}</dd></div>
+      </dl>
+      <p>اطلاعات تماس، متن پیام و یادداشت‌های داخلی در این صفحه نمایش داده نمی‌شوند. این پیوند را فقط با افرادی به‌اشتراک بگذارید که باید وضعیت درخواست را ببینند.</p>
+      <a class="button button--outline" href="{% url 'accounts:profile' %}">بازگشت به حساب کاربری</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.urls import reverse
+
+from accounts.models import CustomerNotification
 
 from .models import Inquiry
 
@@ -11,13 +14,26 @@ class InquiryAdmin(admin.ModelAdmin):
     )
     list_filter = ('kind', 'status', 'created_at')
     search_fields = ('customer_name', 'mobile', 'product_label', 'message')
-    readonly_fields = ('created_at', 'updated_at', 'product_label', 'source_path')
+    readonly_fields = ('public_id', 'profile', 'created_at', 'updated_at', 'product_label', 'source_path')
     list_per_page = 30
     date_hierarchy = 'created_at'
     ordering = ('status', '-created_at')
+
+    def save_model(self, request, obj, form, change):
+        old_status = type(obj).objects.filter(pk=obj.pk).values_list('status', flat=True).first() if change else None
+        super().save_model(request, obj, form, change)
+        if change and old_status != obj.status and obj.profile_id:
+            CustomerNotification.objects.create(
+                profile=obj.profile,
+                kind=CustomerNotification.Kind.SYSTEM,
+                title='وضعیت درخواست شما تغییر کرد',
+                body=f'{obj.get_kind_display()}: {obj.get_status_display()}',
+                target_url=reverse('inquiries:status', kwargs={'public_id': obj.public_id}),
+            )
+
     fieldsets = (
         ('درخواست مشتری', {
-            'fields': ('kind', 'status', 'product_variant', 'product_label', 'requested_quantity', 'quantity_unit', 'message'),
+            'fields': ('public_id', 'profile', 'kind', 'status', 'product_variant', 'product_label', 'requested_quantity', 'quantity_unit', 'message'),
         }),
         ('راه ارتباطی', {'fields': ('customer_name', 'mobile')}),
         ('پیگیری داخلی', {'fields': ('admin_note', 'source_path', 'created_at', 'updated_at')}),

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.core.validators import MinValueValidator, RegexValidator
@@ -36,6 +37,11 @@ class MarketplaceListing(models.Model):
         ('USD', 'دلار آمریکا'),
     )
 
+    public_id = models.UUIDField('شناسهٔ پیگیری', default=uuid.uuid4, unique=True, editable=False)
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب ثبت‌کننده', related_name='marketplace_listings',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
     kind = models.CharField('نوع آگهی', max_length=8, choices=Kind.choices, db_index=True)
     product_variant = models.ForeignKey(
         'catalog.ProductVariant',
@@ -97,6 +103,7 @@ class MarketplaceListing(models.Model):
         indexes = [
             models.Index(fields=('kind', 'status', 'expires_at'), name='market_public_idx'),
             models.Index(fields=('status', 'created_at'), name='market_status_date_idx'),
+            models.Index(fields=('profile', 'status', 'created_at'), name='market_profile_status_idx'),
         ]
 
     def __str__(self):

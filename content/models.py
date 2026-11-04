@@ -307,6 +307,10 @@ class CompanyRequest(models.Model):
         CLOSED = 'closed', 'بسته شد'
 
     public_id = models.UUIDField('شناسهٔ پیگیری', default=uuid.uuid4, unique=True, editable=False)
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب مشتری', related_name='company_requests',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
     kind = models.CharField('نوع درخواست', max_length=12, choices=Kind.choices, db_index=True)
     name = models.CharField('نام', max_length=120)
     mobile = models.CharField(
@@ -335,7 +339,10 @@ class CompanyRequest(models.Model):
         verbose_name = 'درخواست شرکت'
         verbose_name_plural = 'درخواست‌های شرکت'
         ordering = ('-created_at', '-pk')
-        indexes = [models.Index(fields=('kind', 'status', 'created_at'), name='company_req_status_idx')]
+        indexes = [
+            models.Index(fields=('kind', 'status', 'created_at'), name='company_req_status_idx'),
+            models.Index(fields=('profile', 'status', 'created_at'), name='company_req_profile_idx'),
+        ]
 
     def __str__(self):
         return f'{self.get_kind_display()} — {self.name} — {self.created_at:%Y-%m-%d %H:%M}'

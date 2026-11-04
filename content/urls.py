@@ -11,6 +11,7 @@ urlpatterns = [
     path('about/', views.company_page, {'kind': 'about'}, name='about'),
     path('export/', views.company_request, {'kind': 'export'}, name='export'),
     path('careers/', views.company_request, {'kind': 'career'}, name='careers'),
+    path('requests/<uuid:public_id>/', views.company_request_status, name='company_request_status'),
     path('complaints/', views.company_request, {'kind': 'complaint'}, name='complaints'),
     path('feedback/', views.company_request, {'kind': 'feedback'}, name='feedback'),
     path('shipping/', views.company_page, {'kind': 'shipping'}, name='shipping'),

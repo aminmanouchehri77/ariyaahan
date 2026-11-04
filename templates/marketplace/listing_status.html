@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}پیگیری آگهی | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}پیگیری وضعیت آگهی ثبت‌شده در تالار آریا.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% if listing.kind == 'offer' %}{% url 'marketplace:sell' %}{% else %}{% url 'marketplace:buy' %}{% endif %}">تالار بازار</a><span>/</span><span>پیگیری آگهی</span></nav><p class="eyebrow eyebrow--dark">پیگیری خصوصی</p><h1>وضعیت ثبت آگهی</h1><p>شناسهٔ پیگیری: <strong dir="ltr">{{ listing.public_id }}</strong></p></div></section>
+<section class="section content-section"><div class="container narrow-container"><div class="result-card"><dl class="spec-grid"><div><dt>نوع آگهی</dt><dd>{{ listing.get_kind_display }}</dd></div><div><dt>کالا</dt><dd>{{ listing.product_label }}</dd></div><div><dt>وضعیت</dt><dd>{{ listing.get_status_display }}</dd></div><div><dt>زمان ثبت</dt><dd>{{ listing.created_at|jalali_datetime }}</dd></div><div><dt>آخرین به‌روزرسانی</dt><dd>{{ listing.updated_at|jalali_datetime }}</dd></div>{% if listing.status == 'approved' %}<div><dt>اعتبار تا</dt><dd>{{ listing.expires_at|jalali_datetime }}</dd></div>{% endif %}</dl><p>اطلاعات تماس و توضیحات خصوصی آگهی در این صفحه نمایش داده نمی‌شوند. این پیوند را فقط با افرادی که باید وضعیت آگهی را ببینند به اشتراک بگذارید.</p><a class="button button--outline" href="{% if listing.kind == 'offer' %}{% url 'marketplace:sell' %}{% else %}{% url 'marketplace:buy' %}{% endif %}">بازگشت به تالار</a></div></div></section>
+{% endblock %}

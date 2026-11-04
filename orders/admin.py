@@ -8,9 +8,11 @@ from .services import convert_preinvoice_to_order
 
 @admin.action(description='تأیید درخواست‌های انتخاب‌شده برای بررسی نهایی قیمت')
 def confirm_preinvoices(modeladmin, request, queryset):
-    changed = queryset.filter(status__in=(PreInvoice.Status.PENDING, PreInvoice.Status.REVIEW)).update(
-        status=PreInvoice.Status.CONFIRMED,
-    )
+    changed = 0
+    for preinvoice in queryset.filter(status__in=(PreInvoice.Status.PENDING, PreInvoice.Status.REVIEW)):
+        preinvoice.status = PreInvoice.Status.CONFIRMED
+        preinvoice.save(update_fields=('status', 'updated_at'))
+        changed += 1
     modeladmin.message_user(request, f'{changed} درخواست برای بررسی نهایی قیمت تأیید شد.')
 
 

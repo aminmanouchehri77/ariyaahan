@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}پیگیری درخواست‌ها | حساب آریا{% endblock %}
+{% block meta_description %}وضعیت استعلام‌ها، درخواست‌های شرکت و آگهی‌های ثبت‌شدهٔ خود را پیگیری کنید.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه">
+      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
+      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
+      <span>پیگیری درخواست‌ها</span>
+    </nav>
+    <p class="eyebrow eyebrow--dark">درخواست‌های شما</p>
+    <h1>پیگیری درخواست‌ها</h1>
+    <p>وضعیت و زمان آخرین به‌روزرسانی هر مورد را از این صفحه ببینید.</p>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container narrow-container">
+    {% if tracked_requests %}
+      <div class="result-list">
+        {% for item in tracked_requests %}
+          <article class="result-card">
+            <div>
+              <strong>{{ item.type }} · {{ item.status }}</strong>
+              <small>ثبت: {{ item.created_at|jalali_datetime }} · آخرین تغییر: {{ item.updated_at|jalali_datetime }}</small>
+            </div>
+            <a class="text-link" href="{{ item.url }}">مشاهدهٔ وضعیت</a>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>درخواستی برای پیگیری پیدا نشد</strong>
+        <p>درخواست‌هایی که با شمارهٔ تأییدشدهٔ این حساب ثبت شوند، اینجا نمایش داده می‌شوند.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -77,6 +77,12 @@ def company_request(request, kind):
     if request.method == 'POST' and form.is_valid():
         company_request_obj = form.save(commit=False)
         company_request_obj.source_path = request.path[:255]
+        if request.user.is_authenticated:
+            from accounts.models import CustomerProfile
+
+            company_request_obj.profile = CustomerProfile.objects.filter(
+                user=request.user, mobile=company_request_obj.mobile,
+            ).first()
         company_request_obj.save()
         return render(request, 'content/request_sent.html', {
             'request_record': company_request_obj,
@@ -88,6 +94,15 @@ def company_request(request, kind):
         'intro_text': intro,
         'kind': kind,
     })
+
+
+def company_request_status(request, public_id):
+    request_record = get_object_or_404(CompanyRequest, public_id=public_id)
+    response = render(request, 'content/request_status.html', {'request_record': request_record})
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    response['Referrer-Policy'] = 'no-referrer'
+    return response
 
 
 def article_list(request):

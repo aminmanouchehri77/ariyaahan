@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.core.validators import MinValueValidator, RegexValidator
@@ -16,6 +17,11 @@ class Inquiry(models.Model):
         ANSWERED = 'answered', 'پاسخ داده شد'
         CLOSED = 'closed', 'بسته شد'
 
+    public_id = models.UUIDField('شناسهٔ پیگیری', default=uuid.uuid4, unique=True, editable=False)
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب مشتری', related_name='inquiries',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
     kind = models.CharField('نوع درخواست', max_length=12, choices=Kind.choices)
     product_variant = models.ForeignKey(
         'catalog.ProductVariant',
@@ -64,6 +70,7 @@ class Inquiry(models.Model):
         indexes = [
             models.Index(fields=('status', 'created_at'), name='inquiry_status_date_idx'),
             models.Index(fields=('kind', 'created_at'), name='inquiry_kind_date_idx'),
+            models.Index(fields=('profile', 'status', 'created_at'), name='inquiry_profile_status_idx'),
         ]
 
     def __str__(self):

@@ -3,7 +3,28 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.validators import MinValueValidator, RegexValidator
-from django.db import models
+from django.db import models, transaction
+from django.urls import reverse
+
+
+def _notify_customer_status(profile_id, title, body):
+    if not profile_id:
+        return
+
+    target_url = reverse('accounts:orders')
+
+    def create_notification():
+        from accounts.models import CustomerNotification
+
+        CustomerNotification.objects.create(
+            profile_id=profile_id,
+            kind=CustomerNotification.Kind.ORDER,
+            title=title,
+            body=body[:500],
+            target_url=target_url,
+        )
+
+    transaction.on_commit(create_notification)
 
 
 UNIT_CHOICES = (
@@ -64,6 +85,17 @@ class PreInvoice(models.Model):
 
     def __str__(self):
         return f'پیش‌فاکتور #{self.pk or "جدید"} — {self.customer_name}'
+
+    def save(self, *args, **kwargs):
+        status_persisted = kwargs.get('update_fields') is None or 'status' in kwargs['update_fields']
+        previous_status = None
+        if self.pk:
+            previous_status = type(self).objects.filter(pk=self.pk).values_list('status', flat=True).first()
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if status_persisted and (is_new or previous_status != self.status):
+            title = 'درخواست پیش‌فاکتور ثبت شد' if is_new else 'وضعیت پیش‌فاکتور تغییر کرد'
+            _notify_customer_status(self.customer_id, title, self.get_status_display())
 
 
 class PreInvoiceItem(models.Model):
@@ -167,21 +199,26 @@ class Order(models.Model):
         return f'{self.order_number} — {self.get_status_display()}'
 
     def save(self, *args, **kwargs):
+        status_persisted = kwargs.get('update_fields') is None or 'status' in kwargs['update_fields']
         previous_status = None
         if self.pk:
             previous_status = type(self).objects.filter(pk=self.pk).values_list('status', flat=True).first()
         is_new = self._state.adding
         super().save(*args, **kwargs)
-        if is_new:
+        if is_new and status_persisted:
             OrderStatusEvent.objects.create(
                 order=self, from_status='', to_status=self.status,
                 actor=getattr(self, '_status_actor', None), note='ساخته‌شده از پیش‌فاکتور تأییدشده',
             )
-        elif previous_status != self.status:
+        elif status_persisted and previous_status != self.status:
             OrderStatusEvent.objects.create(
                 order=self, from_status=previous_status or '', to_status=self.status,
                 actor=getattr(self, '_status_actor', None), note=getattr(self, '_status_note', ''),
             )
+
+        if status_persisted and (is_new or previous_status != self.status):
+            title = 'سفارش شما ثبت شد' if is_new else 'وضعیت سفارش تغییر کرد'
+            _notify_customer_status(self.customer_id, title, self.get_status_display())
 
     def set_status(self, status, actor=None, note=''):
         transitions = {
