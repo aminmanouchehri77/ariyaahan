@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.sqlite3
+.env
+.local-db.ps1
+.local-sms.ps1
+.venv/
+venv/
+staticfiles/
+media/
+.env.*
+!.env.example
+/tmp/
+*.log

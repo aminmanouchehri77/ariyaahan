@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}حساب کاربری | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}اطلاعات حساب، نشانی‌ها و اعلان‌های مشتری در آهن‌آلات آریا.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>حساب کاربری</span></nav>
+  <p class="eyebrow eyebrow--dark">حساب مشتری</p>
+  <h1>{% if profile and profile.full_name %}سلام {{ profile.full_name }}{% else %}حساب کاربری شما{% endif %}</h1>
+  <p>اطلاعات تماس، سفارش‌ها، نشانی‌ها و هشدارهای قیمت را از این بخش مدیریت کنید.</p>
+</div></section>
+<section class="section content-section"><div class="container account-layout">
+  <div class="inquiry-form account-card">
+    <h2>اطلاعات حساب</h2>
+    {% if profile %}
+      <p class="account-card__lead">شمارهٔ تأییدشده: <strong dir="ltr">{{ profile.mobile }}</strong></p>
+      <form method="post" action="{% url 'accounts:profile' %}">
+        {% csrf_token %}
+        {% for field in profile_form %}<div class="form-field{% if field.errors %} form-field--error{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+        <button class="button button--navy" type="submit">ذخیرهٔ تغییرات</button>
+      </form>
+      <div class="account-links">
+        <a class="button button--outline" href="{% url 'accounts:orders' %}">پیش‌فاکتورها و سفارش‌ها</a>
+        <a class="button button--outline" href="{% url 'accounts:addresses' %}">مدیریت نشانی‌ها</a>
+        <a class="button button--outline" href="{% url 'accounts:price_alerts' %}">هشدارهای قیمت</a>
+      </div>
+    {% else %}
+      <p class="account-card__lead">این ورود از پنل مدیریت انجام شده است؛ حساب مشتری به این کاربر متصل نیست.</p>
+    {% endif %}
+    <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="button button--outline" type="submit">خروج از حساب</button></form>
+  </div>
+  {% if profile %}
+  <div class="inquiry-form account-card">
+    <div class="section-heading section-heading--compact"><h2>اعلان‌های اخیر</h2>{% if unread_count %}<span>{{ unread_count }} خوانده‌نشده</span>{% endif %}</div>
+    {% if notifications %}
+      <ul class="account-notifications">{% for notification in notifications %}<li{% if not notification.is_read %} class="is-unread"{% endif %}><strong>{{ notification.title }}</strong><p>{{ notification.body }}</p><small>{{ notification.created_at|date:'Y/m/d H:i' }}</small>{% if notification.target_url %}<a href="{{ notification.target_url }}">مشاهده</a>{% endif %}</li>{% endfor %}</ul>
+      {% if unread_count %}<form method="post" action="{% url 'accounts:notifications_read' %}">{% csrf_token %}<button class="text-link" type="submit">همه را خوانده‌شده علامت بزن</button></form>{% endif %}
+    {% else %}<p>هنوز اعلانی ندارید.</p>{% endif %}
+    <h3>نشانی‌های ذخیره‌شده</h3>
+    {% if addresses %}<ul class="saved-addresses">{% for address in addresses|slice:':3' %}<li><strong>{{ address.title }}{% if address.is_default %} · پیش‌فرض{% endif %}</strong><span>{{ address.province }}، {{ address.city }}</span></li>{% endfor %}</ul>{% else %}<p>نشانی‌ای ثبت نشده است.</p>{% endif %}
+  </div>
+  {% endif %}
+</div></section>
+{% endblock %}

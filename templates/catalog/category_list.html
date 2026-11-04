@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}دسته‌بندی قیمت آهن‌آلات | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}همهٔ دسته‌بندی‌های محصولات فولادی آریا؛ میلگرد، تیرآهن، ورق، لوله، پروفیل، شمش و محصولات مفتولی.{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>دسته‌بندی کالا</span></nav><p class="eyebrow eyebrow--dark">کاتالوگ فولاد</p><h1>دسته‌بندی محصولات</h1><p>از خانوادهٔ کالا شروع کنید؛ مشخصات و گونه‌های قابل عرضه را در صفحهٔ هر دسته ببینید.</p></div></section>
+<section class="section content-section"><div class="container">
+  {% if categories %}<div class="category-grid category-grid--page">
+    {% for category in categories %}
+    <a class="category-card" href="{{ category.get_absolute_url }}"><span class="category-card__mark" aria-hidden="true">{{ category.icon_key|slice:':2'|upper }}</span><span class="category-card__body"><strong>{{ category.name }}</strong><span>{{ category.description|default:'مشاهدهٔ محصولات و مشخصات' }}</span><small>رفتن به دسته <b aria-hidden="true">←</b></small></span></a>
+    {% endfor %}
+  </div>{% else %}<div class="empty-state"><strong>دسته‌ای برای نمایش ثبت نشده</strong><p>دسته‌های کالا را از پنل مدیریت اضافه کنید.</p></div>{% endif %}
+</div></section>
+{% endblock %}

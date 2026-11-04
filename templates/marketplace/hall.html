@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}{% if is_offer %}تالار عرضهٔ آهن‌آلات{% else %}تالار تقاضای آهن‌آلات{% endif %} | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}{% if is_offer %}آگهی‌های عرضهٔ محصولات فولادی و ثبت آگهی فروش برای بررسی کارشناسان آهن‌آلات آریا.{% else %}آگهی‌های تقاضای محصولات فولادی و ثبت درخواست خرید برای بررسی کارشناسان آهن‌آلات آریا.{% endif %}{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>تالار بازار</span><span>/</span><span>{% if is_offer %}عرضه{% else %}تقاضا{% endif %}</span></nav>
+  <p class="eyebrow eyebrow--dark">بازار آریا</p>
+  <h1>{% if is_offer %}تالار عرضهٔ آهن‌آلات{% else %}تالار تقاضای آهن‌آلات{% endif %}</h1>
+  <p>{% if is_offer %}فهرست عرضه‌های تأییدشده را ببینید یا مشخصات کالای قابل عرضه را ثبت کنید.{% else %}نیازهای خرید ثبت‌شده را مرور کنید یا درخواست خرید خود را برای بررسی بفرستید.{% endif %} اطلاعات تماس آگهی‌دهنده عمومی نیست.</p>
+</div></section>
+<section class="section content-section"><div class="container marketplace-layout">
+  <div class="marketplace-results">
+    <div class="section-heading section-heading--compact"><div><p class="eyebrow eyebrow--dark">آگهی‌های فعال</p><h2>{% if is_offer %}عرضه‌های تأییدشده{% else %}درخواست‌های خرید{% endif %}</h2></div><span class="market-status"><i></i> فقط آگهی‌های تأییدشده</span></div>
+    {% if listings %}
+      <div class="listing-grid">
+      {% for listing in listings %}
+        <article class="listing-card">
+          <div class="listing-card__top"><span class="listing-kind">{% if is_offer %}عرضه{% else %}تقاضا{% endif %}</span><time datetime="{{ listing.created_at|date:'c' }}">{{ listing.created_at|jalali_datetime }}</time></div>
+          <h3>{% if listing.product_variant_id %}<a href="{{ listing.product_variant.product.get_absolute_url }}">{{ listing.product_label }}</a>{% else %}{{ listing.product_label }}{% endif %}</h3>
+          <div class="listing-card__facts"><span><small>مقدار</small><strong>{{ listing.quantity|fa_digits }} {{ listing.get_quantity_unit_display }}</strong></span><span><small>مقصد / محل</small><strong>{{ listing.city }}</strong></span></div>
+          {% if listing.price_amount %}<div class="listing-price"><small>{% if is_offer %}قیمت پیشنهادی{% else %}بودجهٔ اعلام‌شده{% endif %}</small><strong>{{ listing.price_amount|money:listing.currency }} <span>/ هر {{ listing.get_quantity_unit_display }}</span></strong></div>{% endif %}
+          {% if listing.details %}<p class="listing-card__details">{{ listing.details|linebreaksbr }}</p>{% endif %}
+          {% if listing.show_company_name and listing.company_name %}<p class="listing-company">شرکت: {{ listing.company_name }}</p>{% endif %}
+          <div class="listing-card__bottom"><span>اعتبار تا {{ listing.expires_at|jalali_datetime }}</span><a class="text-link" href="{% url 'inquiries:contact' %}?listing={{ listing.pk }}">درخواست پیگیری <span aria-hidden="true">←</span></a></div>
+        </article>
+      {% endfor %}
+      </div>
+      {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌های آگهی‌ها">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" aria-label="صفحهٔ قبلی">→ قبلی</a>{% endif %}
+        <span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" aria-label="صفحهٔ بعدی">بعدی ←</a>{% endif %}
+      </nav>{% endif %}
+    {% else %}
+      <div class="empty-state"><strong>فعلاً آگهی فعالی در این تالار نیست</strong><p>می‌توانید فرم را تکمیل کنید؛ آگهی پس از بررسی کارشناسان منتشر می‌شود.</p></div>
+    {% endif %}
+  </div>
+  <aside class="marketplace-form-wrap">
+    <p class="eyebrow eyebrow--dark">ثبت رایگان</p>
+    <h2>{% if is_offer %}ثبت آگهی عرضه{% else %}ثبت درخواست خرید{% endif %}</h2>
+    <p class="marketplace-form-intro">اطلاعات ابتدا توسط تیم آریا بررسی می‌شود. شمارهٔ همراه در صفحهٔ عمومی نمایش داده نمی‌شود.</p>
+    <form class="marketplace-form" method="post" novalidate>
+      {% csrf_token %}
+      {{ form.website }}
+      {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="form-field {% if form.product_variant.errors %}form-field--error{% endif %}">{{ form.product_variant.label_tag }}{{ form.product_variant }}{{ form.product_variant.errors }}</div>
+      <div class="form-field {% if form.product_label.errors %}form-field--error{% endif %}">{{ form.product_label.label_tag }}{{ form.product_label }}{{ form.product_label.errors }}</div>
+      <div class="form-grid">
+        <div class="form-field {% if form.quantity.errors %}form-field--error{% endif %}">{{ form.quantity.label_tag }}{{ form.quantity }}{{ form.quantity.errors }}</div>
+        <div class="form-field {% if form.quantity_unit.errors %}form-field--error{% endif %}">{{ form.quantity_unit.label_tag }}{{ form.quantity_unit }}{{ form.quantity_unit.errors }}</div>
+        <div class="form-field {% if form.price_amount.errors %}form-field--error{% endif %}">{{ form.price_amount.label_tag }}{{ form.price_amount }}{{ form.price_amount.errors }}</div>
+        <div class="form-field {% if form.currency.errors %}form-field--error{% endif %}">{{ form.currency.label_tag }}{{ form.currency }}{{ form.currency.errors }}</div>
+      </div>
+      <div class="form-field {% if form.city.errors %}form-field--error{% endif %}">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
+      <div class="form-field {% if form.details.errors %}form-field--error{% endif %}">{{ form.details.label_tag }}{{ form.details }}{{ form.details.errors }}</div>
+      <div class="form-grid">
+        <div class="form-field {% if form.contact_name.errors %}form-field--error{% endif %}">{{ form.contact_name.label_tag }}{{ form.contact_name }}{{ form.contact_name.errors }}</div>
+        <div class="form-field {% if form.mobile.errors %}form-field--error{% endif %}">{{ form.mobile.label_tag }}{{ form.mobile }}{{ form.mobile.errors }}</div>
+        <div class="form-field {% if form.company_name.errors %}form-field--error{% endif %}">{{ form.company_name.label_tag }}{{ form.company_name }}{{ form.company_name.errors }}</div>
+      </div>
+      <div class="marketplace-checkbox {% if form.show_company_name.errors %}form-field--error{% endif %}">{{ form.show_company_name }}{{ form.show_company_name.label_tag }}{{ form.show_company_name.errors }}</div>
+      <div class="marketplace-checkbox {% if form.contact_consent.errors %}form-field--error{% endif %}">{{ form.contact_consent }}{{ form.contact_consent.label_tag }}{{ form.contact_consent.errors }}</div>
+      <p class="inquiry-privacy">آگهی تا ۳۰ روز معتبر است. نام و شمارهٔ تماس فقط برای بررسی و پیگیری داخلی استفاده می‌شود؛ انتشار نام شرکت اختیاری است.</p>
+      <button class="button button--gold" type="submit">{% if is_offer %}ارسال آگهی عرضه{% else %}ارسال درخواست خرید{% endif %}</button>
+    </form>
+  </aside>
+</div></section>
+{% endblock %}

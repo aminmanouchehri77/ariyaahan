@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}ورود به حساب | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}ورود امن به حساب مشتریان آهن‌آلات آریا با تأیید شمارهٔ همراه.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>ورود به حساب</span></nav>
+  <p class="eyebrow eyebrow--dark">حساب مشتریان</p>
+  <h1>ورود با شمارهٔ همراه</h1>
+  <p>برای پیگیری درخواست‌ها و استفاده از خدمات حساب کاربری، شمارهٔ همراه خود را تأیید کنید.</p>
+</div></section>
+<section class="section content-section">
+  <div class="container account-layout">
+    <form class="inquiry-form account-card" method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <div>
+        <h2>شمارهٔ همراهتان را وارد کنید</h2>
+        <p class="account-card__lead">کد یک‌بارمصرف برای تأیید شماره فرستاده می‌شود.</p>
+      </div>
+      {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="form-field {% if form.mobile.errors %}form-field--error{% endif %}">
+        {{ form.mobile.label_tag }}{{ form.mobile }}{% if form.mobile.errors %}<div class="form-errors" role="alert">{{ form.mobile.errors }}</div>{% endif %}
+      </div>
+      <p class="inquiry-privacy">با ادامه، اجازه می‌دهید برای تأیید شماره، کد ورود یک‌بارمصرف برایتان ارسال شود.</p>
+      <button class="button button--gold button--full" type="submit">ارسال کد ورود</button>
+    </form>
+    <aside class="inquiry-aside account-aside">
+      <span class="product-aside__eyebrow">حساب امن</span>
+      <h2>شمارهٔ همراه، شناسهٔ ورود شماست</h2>
+      <p>کد ورود کوتاه‌عمر است و پس از استفاده دوباره قابل استفاده نیست. هیچ‌گاه کد پیامکی خود را در اختیار دیگران نگذارید.</p>
+    </aside>
+  </div>
+</section>
+{% endblock %}

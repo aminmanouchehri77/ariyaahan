@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}{{ product.seo_title|default:product.name }} | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}{{ product.meta_description|default:product.summary|default:product.name }}{% endblock %}
+{% block extra_head %}{{ product_schema|json_ld }}{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'catalog:category_list' %}">دسته‌بندی کالا</a><span>/</span><a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a><span>/</span><span>{{ product.name }}</span></nav><p class="eyebrow eyebrow--dark">مشخصات و قیمت</p><h1>{{ product.name }}</h1>{% if product.summary %}<p>{{ product.summary }}</p>{% endif %}</div></section>
+<section class="section content-section"><div class="container product-layout">
+  <div class="product-main">
+    <div class="section-heading section-heading--compact"><div><p class="eyebrow eyebrow--dark">گزینه‌های قابل عرضه</p><h2>گونه‌های محصول</h2></div></div>
+    {% if variants %}<div class="variant-list">
+      {% for variant in variants %}
+      <article class="variant-card">
+        <div class="variant-card__heading"><div><h3>{{ variant.name }}</h3><p>{% if variant.manufacturer %}{{ variant.manufacturer }}{% else %}کارخانه مشخص نشده{% endif %}</p></div><span class="tag {% if variant.latest_amount and not variant.price_expired and not variant.price_validity_unknown and variant.latest_available %}tag--available{% elif variant.price_expired or variant.price_validity_unknown %}tag--stale{% else %}tag--neutral{% endif %}">{% if not variant.latest_amount %}نیازمند استعلام{% elif variant.price_expired %}قیمت منقضی{% elif variant.price_validity_unknown %}اعتبار نامشخص{% elif variant.latest_available %}موجود{% else %}ناموجود{% endif %}</span></div>
+        <dl class="spec-grid">{% if variant.size %}<div><dt>سایز</dt><dd>{{ variant.size }}</dd></div>{% endif %}{% if variant.grade %}<div><dt>گرید</dt><dd>{{ variant.grade }}</dd></div>{% endif %}{% if variant.standard %}<div><dt>استاندارد</dt><dd>{{ variant.standard }}</dd></div>{% endif %}{% if variant.dimensions %}<div><dt>ابعاد</dt><dd>{{ variant.dimensions }}</dd></div>{% endif %}<div><dt>واحد فروش</dt><dd>{{ variant.get_unit_display }}</dd></div>{% if variant.weight_per_unit_kg %}<div><dt>وزن واحد</dt><dd>{{ variant.weight_per_unit_kg|fa_digits }} کیلوگرم</dd></div>{% endif %}</dl>
+        <div class="variant-card__price"><span>قیمت ثبت‌شده</span><strong>{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}هنوز ثبت نشده{% endif %}</strong>
+          {% if variant.latest_amount %}<small>مبنای قیمت: {{ variant.latest_unit_label|default:variant.get_unit_display }}</small>{% endif %}
+          {% if variant.latest_observed_at %}<small>آخرین ثبت: {{ variant.latest_observed_at|jalali_datetime }}</small>{% endif %}
+          {% if variant.latest_location %}<small>محل تحویل: {{ variant.latest_location }}</small>{% endif %}
+          {% if variant.latest_source %}<small>منبع: {{ variant.latest_source }}</small>{% endif %}
+          {% if variant.latest_valid_until %}<small>اعتبار تا: {{ variant.latest_valid_until|jalali_datetime }}</small>{% elif variant.latest_amount %}<small>اعتبار این قیمت پیش از سفارش باید تأیید شود.</small>{% endif %}
+        </div>
+        <a class="button button--outline variant-inquiry" href="{% url 'inquiries:quote' %}?variant={{ variant.pk }}">استعلام قیمت و موجودی</a>
+        <form class="cart-add-form" method="post" action="{% url 'orders:cart_add' variant.pk %}">
+          {% csrf_token %}
+          <label for="quantity-{{ variant.pk }}">مقدار درخواستی ({{ variant.get_unit_display }})</label>
+          <div><input id="quantity-{{ variant.pk }}" type="number" name="quantity" value="1" min="0.001" max="1000000" step="0.001" inputmode="decimal"><button class="button button--navy" type="submit">افزودن به سبد</button></div>
+        </form>
+      </article>
+      {% endfor %}
+    </div>{% else %}<div class="empty-state"><strong>گونه‌ای برای این محصول ثبت نشده</strong><p>مشخصات و گزینه‌های فروش پس از تأیید اطلاعات محصول اضافه می‌شوند.</p></div>{% endif %}
+  </div>
+  <aside class="product-aside"><span class="product-aside__eyebrow">پیش از ثبت سفارش</span><h2>قیمت را با جزئیات بررسی کنید</h2><p>اعتبار مبلغ، واحد فروش و محل تحویل باید پیش از تأیید نهایی مشخص باشد.</p><ul><li>مبلغ و ارز</li><li>تاریخ آخرین به‌روزرسانی</li><li>وضعیت موجودی و محل تحویل</li></ul><a class="button button--gold button--full" href="{% url 'inquiries:contact' %}">تماس با تیم آریا</a></aside>
+</div></section>
+{% if product.description %}<section class="section description-section"><div class="container narrow-container"><h2>دربارهٔ {{ product.name }}</h2><div class="prose">{{ product.description|linebreaks }}</div></div></section>{% endif %}
+{% endblock %}

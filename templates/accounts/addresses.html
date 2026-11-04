@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}نشانی‌های تحویل | حساب آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><span>نشانی‌ها</span></nav><p class="eyebrow eyebrow--dark">تحویل کالا</p><h1>نشانی‌های ذخیره‌شده</h1></div></section>
+<section class="section content-section"><div class="container narrow-container">
+  {% if addresses %}<div class="result-list">{% for address in addresses %}<article class="result-card"><span><strong>{{ address.title }}{% if address.is_default %} · پیش‌فرض{% endif %}</strong><small>{{ address.recipient }} · {{ address.province }}، {{ address.city }} · {{ address.address }}</small><small dir="ltr">{{ address.mobile }}</small></span><span><a href="{% url 'accounts:address_edit' address.id %}">ویرایش</a><form method="post" action="{% url 'accounts:address_delete' address.id %}">{% csrf_token %}<button class="text-link" type="submit">حذف</button></form></span></article>{% endfor %}</div>{% else %}<div class="empty-state"><strong>نشانی‌ای ثبت نشده است</strong><p>برای ساده‌تر شدن استعلام و هماهنگی تحویل، نشانی پروژه را ذخیره کنید.</p></div>{% endif %}
+  <a class="button button--navy" href="{% url 'accounts:address_add' %}">افزودن نشانی</a>
+</div></section>
+{% endblock %}

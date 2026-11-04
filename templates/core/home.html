@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+
+{% block title %}آهن‌آلات آریا | قیمت و مشخصات محصولات فولادی{% endblock %}
+{% block meta_description %}دسته‌بندی و جست‌وجوی محصولات فولادی آریا؛ مشخصات فنی، واحد فروش و قیمت ثبت‌شده با زمان به‌روزرسانی.{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero__grid" aria-hidden="true"></div>
+  <div class="container hero__inner">
+    <div class="hero__content">
+      <p class="eyebrow"><span></span> انتخاب مطمئن، از اطلاعات دقیق شروع می‌شود</p>
+      <h1>بازار آهن را<br><em>شفاف‌تر</em> انتخاب کنید</h1>
+      <p class="hero__lead">محصول، سایز و کارخانه را پیدا کنید؛ مشخصات و قیمت را با واحد، محل تحویل و زمان ثبت کنار هم ببینید.</p>
+      <form class="hero-search" action="{% url 'core:search' %}" method="get" role="search">
+        <label class="visually-hidden" for="hero-search">نام کالا، سایز یا کارخانه</label>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
+        <input id="hero-search" type="search" name="q" placeholder="نام کالا، سایز یا کارخانه را بنویسید" autocomplete="off">
+        <button type="submit">پیدا کن</button>
+      </form>
+      <div class="hero__links">
+        <a class="button button--gold" href="{% url 'catalog:category_list' %}">دیدن دسته‌بندی کالاها <span aria-hidden="true">←</span></a>
+        <span class="hero__hint">جست‌وجو بر اساس نام، سایز و گرید</span>
+      </div>
+    </div>
+
+    <div class="hero-art" aria-hidden="true">
+      <div class="hero-art__glow"></div>
+      <div class="steel-stack steel-stack--one"><i></i><i></i><i></i><i></i></div>
+      <div class="steel-stack steel-stack--two"><i></i><i></i><i></i></div>
+      <div class="hero-card">
+        <span class="hero-card__label">معیارهای یک انتخاب خوب</span>
+        <strong>مشخصات روشن.<br>تصمیم مطمئن.</strong>
+        <div class="hero-card__rule"></div>
+        <div class="hero-card__meta"><span>واحد قیمت</span><span>محل تحویل</span><span>زمان ثبت</span></div>
+      </div>
+      <span class="hero-art__stamp">ARIA <b>STEEL</b></span>
+    </div>
+  </div>
+  <div class="hero__base"><div class="container"><span>آهن‌آلات آریا</span><span class="hero__base-line"></span><span>فولاد، با اطلاعات قابل اتکا</span></div></div>
+</section>
+
+<section class="section category-section" aria-labelledby="category-title">
+  <div class="container">
+    <div class="section-heading">
+      <div><p class="eyebrow eyebrow--dark">کاتالوگ آریا</p><h2 id="category-title">دسته‌بندی محصولات</h2></div>
+      <a class="text-link" href="{% url 'catalog:category_list' %}">مشاهدهٔ همهٔ کالاها <span aria-hidden="true">←</span></a>
+    </div>
+    {% if categories %}
+    <div class="category-grid">
+      {% for category in categories %}
+      <a class="category-card" href="{{ category.get_absolute_url }}">
+        <span class="category-card__mark" aria-hidden="true">{{ category.icon_key|slice:':2'|upper }}</span>
+        <span class="category-card__body">
+          <strong>{{ category.name }}</strong>
+          <span>{{ category.description|default:'مشاهدهٔ فهرست قیمت و مشخصات' }}</span>
+          <small>{{ category.product_count|fa_digits }} محصول <b aria-hidden="true">←</b></small>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state empty-state--inline">
+      <span class="empty-state__icon" aria-hidden="true">＋</span>
+      <div><strong>کاتالوگ در حال آماده‌سازی است</strong><p>پس از ثبت دسته‌های واقعی در پنل مدیریت، این بخش به‌صورت خودکار تکمیل می‌شود.</p></div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="market-section section" aria-labelledby="market-title">
+  <div class="container">
+    <div class="section-heading section-heading--market">
+      <div><p class="eyebrow eyebrow--dark">بازار امروز</p><h2 id="market-title">قیمت‌های قابل پیگیری</h2></div>
+      <span class="market-status"><i></i> فقط داده‌های ثبت‌شده نمایش داده می‌شوند</span>
+    </div>
+    {% if featured_variants %}
+    <div class="market-table-wrap">
+      <table class="market-table">
+        <thead><tr><th scope="col">محصول</th><th scope="col">کارخانه / مشخصات</th><th scope="col">آخرین قیمت</th><th scope="col">آخرین ثبت</th><th scope="col">وضعیت</th><th scope="col"><span class="visually-hidden">جزئیات</span></th></tr></thead>
+        <tbody>
+        {% for variant in featured_variants %}
+          <tr>
+            <td data-label="محصول"><a class="table-product" href="{{ variant.product.get_absolute_url }}"><strong>{{ variant.product.name }}</strong><small>{{ variant.name }}</small></a></td>
+            <td data-label="کارخانه / مشخصات">{{ variant.manufacturer|default:'—' }}{% if variant.size %}<small class="table-sub">سایز {{ variant.size }}{% if variant.grade %} · {{ variant.grade }}{% endif %}</small>{% endif %}</td>
+            <td class="price-cell" data-label="آخرین قیمت">{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}استعلام{% endif %}<small>{{ variant.latest_unit_label|default:variant.get_unit_display }}</small></td>
+            <td data-label="آخرین ثبت">{% if variant.latest_observed_at %}<time datetime="{{ variant.latest_observed_at|date:'c' }}">{{ variant.latest_observed_at|jalali_datetime }}</time>{% else %}—{% endif %}{% if variant.latest_location %}<small class="table-sub">تحویل: {{ variant.latest_location }}</small>{% endif %}</td>
+            <td data-label="وضعیت">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">موجود</span>{% else %}<span class="tag tag--neutral">ناموجود</span>{% endif %}</td>
+            <td data-label="جزئیات"><a class="table-action" href="{{ variant.product.get_absolute_url }}">جزئیات <span aria-hidden="true">←</span></a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="market-empty">
+      <div class="market-empty__mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div><strong>قیمت تأییدشده‌ای برای نمایش ثبت نشده</strong><p>برای جلوگیری از نمایش عدد ساختگی یا قدیمی، جدول با ثبت اولین قیمت معتبر فعال می‌شود.</p></div>
+      <a class="button button--outline" href="{% url 'catalog:category_list' %}">مرور دسته‌ها</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="assurance-section">
+  <div class="container assurance-grid">
+    <div class="assurance-intro"><p class="eyebrow">روشن و قابل پیگیری</p><h2>برای خرید فولاد،<br>جزئیات اهمیت دارد.</h2></div>
+    <article class="assurance-item"><span>۰۱</span><h3>مشخصات، کنار کالا</h3><p>سایز، گرید، استاندارد و کارخانه بخشی از انتخاب‌اند؛ نه جزئیاتی پنهان در پایین صفحه.</p></article>
+    <article class="assurance-item"><span>۰۲</span><h3>قیمت با زمان و واحد</h3><p>مبلغ بدون واحد و زمان به‌روزرسانی معنای کافی ندارد؛ این اطلاعات باید کنار عدد باشند.</p></article>
+    <article class="assurance-item"><span>۰۳</span><h3>قیمت کهنه، برچسب‌دار</h3><p>قیمت منقضی باید به‌عنوان دادهٔ قدیمی شناخته شود و به استعلام تازه هدایت کند.</p></article>
+  </div>
+</section>
+
+<section class="closing-cta">
+  <div class="container closing-cta__inner"><div><p class="eyebrow eyebrow--dark">آمادهٔ شروع جست‌وجو هستید؟</p><h2>کالای مناسب پروژه‌تان را پیدا کنید.</h2></div><a class="button button--navy" href="{% url 'catalog:category_list' %}">رفتن به کاتالوگ <span aria-hidden="true">←</span></a></div>
+</section>
+{% endblock %}
