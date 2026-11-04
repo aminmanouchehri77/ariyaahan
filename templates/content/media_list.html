@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_video %}ویدیوها{% else %}پادکست‌ها{% endif %} | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}محتوای ویدیویی و صوتی منتشرشدهٔ آهن‌آلات آریا.{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>رسانه</span></nav><p class="eyebrow eyebrow--dark">رسانهٔ آریا</p><h1>{% if is_video %}ویدیوها{% else %}پادکست‌ها{% endif %}</h1></div></section>
+<section class="section content-section"><div class="container">{% if items %}<div class="result-list">{% for item in items %}<article class="result-card">{% if item.cover_image_url %}<img src="{{ item.cover_image_url }}" alt="" loading="lazy" width="120" height="80">{% endif %}<span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small>{% if item.duration_seconds %}<small>مدت: {{ item.duration_seconds }} ثانیه</small>{% endif %}</span><a href="{{ item.media_url }}" target="_blank" rel="noopener noreferrer">پخش محتوا</a></article>{% endfor %}</div>{% else %}<div class="empty-state"><strong>محتوای منتشرشده‌ای وجود ندارد</strong><p>ویدیو و پادکست را از پنل مدیریت به فهرست اضافه کنید.</p></div>{% endif %}</div></section>
+{% endblock %}

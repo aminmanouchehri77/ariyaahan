@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}محاسبه‌گر وزن آهن‌آلات | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}وزن تقریبی میلگرد، لوله یا ورق را با واردکردن ابعاد محاسبه کنید یا وزن مرجع را از کاتالوگ بگیرید.{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>محاسبه‌گر وزن</span></nav><p class="eyebrow eyebrow--dark">ابزار خرید دقیق</p><h1>محاسبه‌گر وزن آهن‌آلات</h1><p>وزن نظری را بر پایهٔ ابعاد یا وزن ثبت‌شدهٔ کاتالوگ به دست بیاورید.</p></div></section>
+<section class="section content-section"><div class="container narrow-container">
+  <form class="inquiry-form" method="post" data-weight-calculator>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-field">{{ form.calculation_type.label_tag }}{{ form.calculation_type }}{{ form.calculation_type.errors }}</div>
+    <div class="form-grid"><div data-weight-fields="round_bar pipe" class="form-field">{{ form.diameter_mm.label_tag }}{{ form.diameter_mm }}{{ form.diameter_mm.errors }}</div>
+      <div data-weight-fields="pipe plate" class="form-field">{{ form.thickness_mm.label_tag }}{{ form.thickness_mm }}{{ form.thickness_mm.errors }}</div>
+      <div data-weight-fields="plate" class="form-field">{{ form.width_mm.label_tag }}{{ form.width_mm }}{{ form.width_mm.errors }}</div>
+      <div data-weight-fields="plate" class="form-field">{{ form.length_mm.label_tag }}{{ form.length_mm }}{{ form.length_mm.errors }}</div>
+      <div data-weight-fields="round_bar pipe" class="form-field">{{ form.length_m.label_tag }}{{ form.length_m }}{{ form.length_m.errors }}</div>
+      <div data-weight-fields="catalog" class="form-field">{{ form.variant.label_tag }}{{ form.variant }}{{ form.variant.errors }}</div>
+      <div data-weight-fields="round_bar pipe plate catalog" class="form-field">{{ form.count.label_tag }}{{ form.count }}{{ form.count.errors }}</div>
+    </div>
+    <button class="button button--navy" type="submit">محاسبهٔ وزن</button>
+  </form>
+  {% if result %}<div class="calculator-result" aria-live="polite"><p class="eyebrow eyebrow--dark">نتیجهٔ تقریبی</p><strong>{{ result.weight_kg|fa_digits }} کیلوگرم</strong><span>حدود {{ result.weight_tonnes|fa_digits }} تن</span><small>روش: {{ result.formula }}</small></div>{% endif %}
+  <p class="inquiry-privacy">این برآورد وزن نظری است؛ رواداری ساخت، استاندارد کارخانه، رطوبت یا پوشش سطحی می‌تواند وزن واقعی را تغییر دهد. برای سفارش بر مبنای وزن باسکول، مشخصات فروشنده را ملاک قرار دهید.</p>
+</div></section>
+{% endblock %}
+{% block extra_js %}<script>
+(() => {
+  const form = document.querySelector('[data-weight-calculator]');
+  if (!form) return;
+  const select = form.querySelector('[name="calculation_type"]');
+  const wrappers = form.querySelectorAll('[data-weight-fields]');
+  const update = () => {
+    wrappers.forEach((wrapper) => {
+      const visible = wrapper.dataset.weightFields.split(' ').includes(select.value);
+      wrapper.hidden = !visible;
+      wrapper.querySelectorAll('input, select').forEach((field) => { field.disabled = !visible; });
+    });
+  };
+  select.addEventListener('change', update);
+  update();
+})();
+</script>{% endblock %}

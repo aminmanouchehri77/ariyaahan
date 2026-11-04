@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}{{ article.seo_title|default:article.title }} | مجلهٔ آریا{% endblock %}
+{% block meta_description %}{{ article.meta_description|default:article.excerpt }}{% endblock %}
+{% block extra_head %}<script type="application/ld+json">{{ article_schema|safe }}</script>{% endblock %}
+{% block structured_data %}<script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>{% endblock %}
+{% block content %}
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'content:article_list' %}">مجله</a><span>/</span><span>{{ article.title }}</span></nav><p class="eyebrow eyebrow--dark">{{ article.category|default:'مجلهٔ آریا' }}</p><h1>{{ article.title }}</h1><p>{{ article.excerpt }}</p><small>{{ article.published_at|date:'Y/m/d' }}{% if article.author_name %} · {{ article.author_name }}{% endif %}</small></div></section>
+<section class="section content-section"><div class="container narrow-container">{% if article.cover_image_url %}<img class="article-cover" src="{{ article.cover_image_url }}" alt="{{ article.title }}" loading="eager">{% endif %}<article class="article-body">{{ article.body|linebreaks }}</article>{% if article.tags.all %}<p class="tag-list">{% for tag in article.tags.all %}<a href="{% url 'content:article_list' %}?tag={{ tag.slug }}">{{ tag.name }}</a>{% endfor %}</p>{% endif %}<a class="text-link" href="{% url 'content:article_list' %}">بازگشت به مجله ←</a></div></section>
+{% endblock %}

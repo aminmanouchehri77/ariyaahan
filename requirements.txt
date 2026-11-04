@@ -4,3 +4,4 @@ sqlparse==0.6.1
 tzdata==2026.6
 mysqlclient==2.3.0
 jdatetime==6.1.1
+pywebpush==2.5.0

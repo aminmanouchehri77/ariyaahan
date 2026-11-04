@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
-from .models import InventoryLocation, PriceObservation, PriceReviewEvent, StockObservation
+from .models import InventoryLocation, PriceObservation, PriceReviewEvent, ShippingRate, StockObservation
 
 
 @admin.action(description='تأیید قیمت‌های انتخاب‌شده')
@@ -95,3 +95,14 @@ class StockObservationAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'approved_by', 'approved_at', 'status')
     actions = (approve_stock,)
     date_hierarchy = 'observed_at'
+
+
+@admin.register(ShippingRate)
+class ShippingRateAdmin(admin.ModelAdmin):
+    list_display = (
+        'origin_city', 'destination_city', 'minimum_tonnes', 'maximum_tonnes',
+        'base_fee', 'per_tonne', 'currency', 'valid_until', 'is_active',
+    )
+    list_filter = ('is_active', 'currency', 'origin_city', 'destination_city', 'valid_until')
+    search_fields = ('origin_city', 'destination_city', 'source')
+    ordering = ('origin_city', 'destination_city', 'minimum_tonnes')

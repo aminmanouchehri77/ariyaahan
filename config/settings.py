@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'marketplace.apps.MarketplaceConfig',
     'inquiries.apps.InquiriesConfig',
     'orders.apps.OrdersConfig',
+    'content.apps.ContentConfig',
 ]
 
 MIDDLEWARE = [
@@ -157,6 +158,7 @@ OTP_MAX_SENDS_PER_HOUR = int(os.getenv('OTP_MAX_SENDS_PER_HOUR', '5'))
 OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '5'))
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+VAPID_PRIVATE_KEY_FILE = os.getenv('VAPID_PRIVATE_KEY_FILE', '').strip()
 VAPID_CLAIMS_EMAIL = os.getenv('VAPID_CLAIMS_EMAIL', '').strip()
 PUBLIC_SITE_URL = os.getenv('PUBLIC_SITE_URL', '').strip().rstrip('/')
 TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()

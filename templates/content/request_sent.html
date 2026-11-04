@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}درخواست ثبت شد | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="section content-section"><div class="container narrow-container">
+  <div class="empty-state"><span class="receipt-check" aria-hidden="true">✓</span><h1>{{ title_text }} ثبت شد</h1><p>شناسهٔ پیگیری: <strong>{{ request_record.public_id }}</strong></p><p>اطلاعات تماس فقط برای بررسی همین درخواست در پنل داخلی نگهداری می‌شود.</p><a class="button button--navy" href="{% url 'core:home' %}">بازگشت به خانه</a></div>
+</div></section>
+{% endblock %}

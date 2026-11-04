@@ -223,3 +223,29 @@ class StockObservation(models.Model):
         self.approved_by = actor
         self.approved_at = timezone.now()
         self.save(update_fields=('status', 'approved_by', 'approved_at'))
+
+
+class ShippingRate(models.Model):
+    origin_city = models.CharField('مبدأ', max_length=100, db_index=True)
+    destination_city = models.CharField('مقصد', max_length=100, db_index=True)
+    minimum_tonnes = models.DecimalField('حداقل وزن (تن)', max_digits=10, decimal_places=3, default=0)
+    maximum_tonnes = models.DecimalField('حداکثر وزن (تن)', max_digits=10, decimal_places=3, null=True, blank=True)
+    base_fee = models.DecimalField('هزینهٔ ثابت', max_digits=18, decimal_places=0, default=0, validators=[MinValueValidator(0)])
+    per_tonne = models.DecimalField('هزینه به‌ازای هر تن', max_digits=18, decimal_places=0, validators=[MinValueValidator(1)])
+    currency = models.CharField('ارز', max_length=3, choices=PriceObservation.Currency.choices, default=PriceObservation.Currency.IRT)
+    tax_included = models.BooleanField('مالیات در مبلغ لحاظ شده', null=True, blank=True)
+    source = models.CharField('منبع نرخ', max_length=160, blank=True)
+    valid_until = models.DateTimeField('اعتبار نرخ تا')
+    is_active = models.BooleanField('فعال', default=True, db_index=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
+
+    class Meta:
+        verbose_name = 'نرخ حمل'
+        verbose_name_plural = 'نرخ‌های حمل'
+        ordering = ('origin_city', 'destination_city', 'minimum_tonnes')
+        indexes = [
+            models.Index(fields=('origin_city', 'destination_city', 'is_active'), name='shipping_route_active_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.origin_city} ← {self.destination_city} — {self.per_tonne} / تن'

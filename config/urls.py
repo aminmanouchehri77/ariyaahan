@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from core.views import legacy_route
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('account/', include('accounts.urls')),
@@ -25,4 +27,6 @@ urlpatterns = [
     path('', include('inquiries.urls')),
     path('', include('marketplace.urls')),
     path('', include('orders.urls')),
+    path('', include('content.urls')),
+    path('<path:old_path>', legacy_route, name='legacy_redirect'),
 ]

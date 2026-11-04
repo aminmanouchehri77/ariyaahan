@@ -2,6 +2,7 @@ from django.core.paginator import Paginator
 from django.db.models import F
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from core.seo import breadcrumb_schema
 from pricing.selectors import mark_price_state, with_latest_price
 
 from .models import Category, Product, ProductVariant
@@ -12,7 +13,12 @@ def category_list(request):
         is_active=True,
         parent__isnull=True,
     ).order_by('sort_order', 'name')
-    return render(request, 'catalog/category_list.html', {'categories': categories})
+    return render(request, 'catalog/category_list.html', {
+        'categories': categories,
+        'breadcrumb_schema': breadcrumb_schema(request, [
+            ('خانه', '/'), ('دسته‌بندی کالا', reverse('catalog:category_list')),
+        ]),
+    })
 
 
 def category_detail(request, slug):
@@ -42,6 +48,10 @@ def category_detail(request, slug):
         'size_filter': size,
         'manufacturer_filter': manufacturer,
         'category_indexable': has_variants and not size and not manufacturer and page.number == 1,
+        'breadcrumb_schema': breadcrumb_schema(request, [
+            ('خانه', '/'), ('دسته‌بندی کالا', reverse('catalog:category_list')),
+            (category.name, category.get_absolute_url()),
+        ]),
     })
 
 
@@ -102,4 +112,9 @@ def product_detail(request, slug):
         'product': product,
         'variants': variants,
         'product_schema': schema,
+        'breadcrumb_schema': breadcrumb_schema(request, [
+            ('خانه', '/'), ('دسته‌بندی کالا', reverse('catalog:category_list')),
+            (product.category.name, product.category.get_absolute_url()),
+            (product.name, product.get_absolute_url()),
+        ]),
     })
