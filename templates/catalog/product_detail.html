@@ -22,6 +22,7 @@
           {% if variant.latest_valid_until %}<small>اعتبار تا: {{ variant.latest_valid_until|jalali_datetime }}</small>{% elif variant.latest_amount %}<small>اعتبار این قیمت پیش از سفارش باید تأیید شود.</small>{% endif %}
         </div>
         <a class="button button--outline variant-inquiry" href="{% url 'inquiries:quote' %}?variant={{ variant.pk }}">استعلام قیمت و موجودی</a>
+        <div class="variant-tools"><a class="text-link" href="{% url 'catalog:price_history' product.slug %}?variant={{ variant.pk }}">مشاهدهٔ تاریخچهٔ قیمت</a><form method="post" action="{% url 'catalog:compare_add' variant.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="text-link" type="submit">افزودن به مقایسه</button></form></div>
         <form class="cart-add-form" method="post" action="{% url 'orders:cart_add' variant.pk %}">
           {% csrf_token %}
           <label for="quantity-{{ variant.pk }}">مقدار درخواستی ({{ variant.get_unit_display }})</label>
@@ -31,7 +32,11 @@
       {% endfor %}
     </div>{% else %}<div class="empty-state"><strong>گونه‌ای برای این محصول ثبت نشده</strong><p>مشخصات و گزینه‌های فروش پس از تأیید اطلاعات محصول اضافه می‌شوند.</p></div>{% endif %}
   </div>
-  <aside class="product-aside"><span class="product-aside__eyebrow">پیش از ثبت سفارش</span><h2>قیمت را با جزئیات بررسی کنید</h2><p>اعتبار مبلغ، واحد فروش و محل تحویل باید پیش از تأیید نهایی مشخص باشد.</p><ul><li>مبلغ و ارز</li><li>تاریخ آخرین به‌روزرسانی</li><li>وضعیت موجودی و محل تحویل</li></ul><a class="button button--gold button--full" href="{% url 'inquiries:contact' %}">تماس با تیم آریا</a></aside>
+  <aside class="product-aside"><span class="product-aside__eyebrow">پیش از ثبت سفارش</span><h2>قیمت را با جزئیات بررسی کنید</h2><p>اعتبار مبلغ، واحد فروش و محل تحویل باید پیش از تأیید نهایی مشخص باشد.</p><ul><li>مبلغ و ارز</li><li>تاریخ آخرین به‌روزرسانی</li><li>وضعیت موجودی و محل تحویل</li></ul><a class="button button--outline button--full" href="{% url 'catalog:compare' %}">مقایسهٔ کالاها ({{ compare_count|fa_digits }})</a><a class="button button--gold button--full" href="{% url 'inquiries:contact' %}">تماس با تیم آریا</a></aside>
 </div></section>
 {% if product.description %}<section class="section description-section"><div class="container narrow-container"><h2>دربارهٔ {{ product.name }}</h2><div class="prose">{{ product.description|linebreaks }}</div></div></section>{% endif %}
+<section class="section description-section" id="product-questions"><div class="container narrow-container"><div class="section-heading"><div><p class="eyebrow eyebrow--dark">پاسخ‌گویی کارشناسان</p><h2>پرسش و پاسخ دربارهٔ کالا</h2></div></div>
+  {% if product_questions %}<div class="product-question-list">{% for item in product_questions %}<article class="product-question"><h3>{{ item.question }}</h3><p class="product-question__meta">{{ item.display_name }} · {{ item.published_at|jalali_datetime }}</p>{% if item.answer %}<div class="product-question__answer"><strong>پاسخ آهن‌آلات آریا</strong><p>{{ item.answer|linebreaksbr }}</p></div>{% endif %}</article>{% endfor %}</div>{% else %}<p>هنوز پرسش منتشرشده‌ای برای این کالا ثبت نشده است.</p>{% endif %}
+  {% if question_form %}<form class="inquiry-form product-question-form" method="post" action="{% url 'content:product_question_submit' product.slug %}">{% csrf_token %}<h3>پرسش خود را ثبت کنید</h3>{% if question_form.non_field_errors %}<div class="form-errors">{{ question_form.non_field_errors }}</div>{% endif %}{% for field in question_form %}<div class="form-field{% if field.errors %} form-field--error{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button class="button button--navy" type="submit">ارسال برای بازبینی</button></form>{% elif question_account_missing %}<p>برای ثبت پرسش، با حساب مشتریِ تأییدشده وارد شوید.</p>{% else %}<p><a class="text-link" href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}">برای ثبت پرسش وارد حساب شوید</a></p>{% endif %}
+</div></section>
 {% endblock %}

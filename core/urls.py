@@ -1,14 +1,16 @@
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
 
-from .sitemaps import ArticleSitemap, CategorySitemap, CompanyPageSitemap, ProductSitemap, StaticPageSitemap
+from .sitemaps import ArticleSitemap, CategorySitemap, CompanyPageSitemap, MarketNewsSitemap, ProductSitemap, StaticPageSitemap
 from . import views
 
 app_name = 'core'
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('.well-known/assetlinks.json', views.assetlinks_json, name='assetlinks'),
     path('search/', views.search, name='search'),
+    path('search/suggestions/', views.search_suggestions, name='search_suggestions'),
     path('calculators/steel-weight/', views.weight_calculator, name='weight_calculator'),
     path('calculators/shipping/', views.shipping_calculator, name='shipping_calculator'),
     path('offline/', views.offline, name='offline'),
@@ -20,6 +22,7 @@ urlpatterns = [
             'products': ProductSitemap,
             'company_pages': CompanyPageSitemap,
             'articles': ArticleSitemap,
+            'market_news': MarketNewsSitemap,
         },
     }, name='sitemap'),
     path('service-worker.js', views.service_worker, name='service_worker'),

@@ -40,6 +40,20 @@ class RedirectRule(models.Model):
                 raise ValidationError({'destination': 'مسیر مقصد نمی‌تواند همان مسیر قدیمی باشد.'})
             if '\\' in destination:
                 raise ValidationError({'destination': 'مقصد نمی‌تواند شامل بک‌اسلش باشد.'})
+            if self.is_active:
+                seen = {old.rstrip('/')}
+                cursor = destination
+                for _ in range(20):
+                    cursor_path = urlsplit(cursor).path.rstrip('/')
+                    if cursor_path in seen:
+                        raise ValidationError({'destination': 'این مسیر به یک حلقهٔ تغییرمسیر می‌رسد.'})
+                    seen.add(cursor_path)
+                    next_rule = type(self).objects.filter(old_path=urlsplit(cursor).path, is_active=True).exclude(pk=self.pk).first()
+                    if not next_rule or next_rule.status_code == self.StatusCode.GONE:
+                        break
+                    cursor = next_rule.destination
+                else:
+                    raise ValidationError({'destination': 'زنجیرهٔ تغییرمسیر بیش از حد طولانی است.'})
 
     def save(self, *args, **kwargs):
         self.old_path = (self.old_path or '').strip()

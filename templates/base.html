@@ -58,8 +58,9 @@
       <form class="search-form" action="{% url 'core:search' %}" method="get" role="search">
         <label class="visually-hidden" for="site-search">جست‌وجوی کالا، سایز یا کارخانه</label>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
-        <input id="site-search" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="مثلاً میلگرد ۱۲، ورق ST52 یا کارخانه…" autocomplete="off">
+        <input id="site-search" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="مثلاً میلگرد ۱۲، ورق ST52 یا کارخانه…" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" aria-expanded="false" data-suggestions-url="{% url 'core:search_suggestions' %}">
         <button type="submit">جست‌وجو</button>
+        <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="پیشنهادهای جست‌وجو" hidden></div>
       </form>
 
       <div class="header-actions">
@@ -124,6 +125,7 @@
         <a href="{% url 'inquiries:contact' %}">تماس با ما</a>
         <a href="{% url 'content:about' %}">دربارهٔ آریا</a>
         <a href="{% url 'content:article_list' %}">مجلهٔ فولاد</a>
+        <a href="{% url 'content:market_news_list' %}">اخبار قیمت بازار</a>
         <a href="{% url 'content:faq' %}">پرسش‌های متداول</a>
         <a href="{% url 'core:weight_calculator' %}">محاسبه‌گر وزن</a>
         <a href="{% url 'core:shipping_calculator' %}">برآورد حمل</a>

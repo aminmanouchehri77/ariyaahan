@@ -2,7 +2,7 @@ from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
 from catalog.models import Category, Product
-from content.models import Article, CompanyPage
+from content.models import Article, CompanyPage, MarketNews
 
 
 class StaticPageSitemap(Sitemap):
@@ -18,6 +18,7 @@ class StaticPageSitemap(Sitemap):
             'core:weight_calculator',
             'core:shipping_calculator',
             'content:article_list',
+            'content:market_news_list',
             'content:faq',
             'content:videos',
             'content:podcasts',
@@ -79,3 +80,14 @@ class ArticleSitemap(Sitemap):
 
     def lastmod(self, item):
         return item.updated_at
+
+
+class MarketNewsSitemap(Sitemap):
+    changefreq = 'hourly'
+    priority = 0.6
+
+    def items(self):
+        return MarketNews.objects.all()
+
+    def lastmod(self, item):
+        return item.published_at

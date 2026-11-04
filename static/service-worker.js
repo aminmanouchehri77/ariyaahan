@@ -57,3 +57,39 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    payload = { body: event.data ? event.data.text() : '' };
+  }
+  const title = String(payload.title || 'آهن‌آلات آریا').slice(0, 120);
+  const body = String(payload.body || 'اعلان تازه‌ای برای شما ثبت شده است.').slice(0, 240);
+  const target = new URL(payload.url || '/', self.location.origin);
+  const safeUrl = target.origin === self.location.origin ? target.href : self.location.origin + '/';
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    icon: '/static/core/icons/icon-192.png',
+    badge: '/static/core/icons/icon-192.png',
+    data: { url: safeUrl },
+    dir: 'rtl',
+    lang: 'fa-IR',
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data && event.notification.data.url || '/', self.location.origin);
+  const safeUrl = target.origin === self.location.origin ? target.href : self.location.origin + '/';
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      if (new URL(client.url).origin === self.location.origin) {
+        client.navigate(safeUrl);
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(safeUrl);
+  }));
+});

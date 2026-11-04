@@ -94,6 +94,84 @@ class Article(models.Model):
         return reverse('content:article_detail', kwargs={'slug': self.slug})
 
 
+class MarketNews(models.Model):
+    class Trend(models.TextChoices):
+        RISING = 'rising', 'افزایشی'
+        FALLING = 'falling', 'کاهشی'
+        UNCHANGED = 'unchanged', 'بدون تغییر'
+
+    price_observation = models.OneToOneField(
+        'pricing.PriceObservation', verbose_name='ثبت قیمت تأییدشده', related_name='market_news',
+        on_delete=models.PROTECT,
+    )
+    previous_observation = models.ForeignKey(
+        'pricing.PriceObservation', verbose_name='ثبت مقایسه', related_name='market_news_as_previous',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    variant = models.ForeignKey(
+        'catalog.ProductVariant', verbose_name='گونهٔ محصول', related_name='market_news', on_delete=models.PROTECT,
+    )
+    headline = models.CharField('تیتر خبر', max_length=240)
+    summary = models.CharField('خلاصهٔ تغییر', max_length=500)
+    trend = models.CharField('روند', max_length=12, choices=Trend.choices, db_index=True)
+    previous_amount = models.DecimalField('مبلغ پیشین', max_digits=18, decimal_places=0)
+    current_amount = models.DecimalField('مبلغ جدید', max_digits=18, decimal_places=0)
+    currency = models.CharField('ارز', max_length=3, choices=(('IRR', 'ریال'), ('IRT', 'تومان'), ('USD', 'دلار')))
+    price_basis = models.CharField('واحد قیمت', max_length=12)
+    tax_included = models.BooleanField('مالیات در قیمت لحاظ شده', null=True, blank=True)
+    delivery_location = models.CharField('محل تحویل', max_length=140, blank=True)
+    change_percent = models.DecimalField('درصد تغییر', max_digits=9, decimal_places=2)
+    published_at = models.DateTimeField('زمان انتشار', db_index=True)
+
+    class Meta:
+        verbose_name = 'خبر تغییر قیمت'
+        verbose_name_plural = 'اخبار تغییر قیمت'
+        ordering = ('-published_at', '-pk')
+        indexes = [models.Index(fields=('trend', '-published_at'), name='market_news_trend_date_idx')]
+
+    def __str__(self):
+        return self.headline
+
+    def get_absolute_url(self):
+        return reverse('content:market_news_detail', kwargs={'pk': self.pk})
+
+
+class ProductQuestion(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'در انتظار بررسی'
+        PUBLISHED = 'published', 'منتشرشده'
+        ANSWERED = 'answered', 'پاسخ داده‌شده'
+        REJECTED = 'rejected', 'ردشده'
+
+    product = models.ForeignKey(
+        'catalog.Product', verbose_name='محصول', related_name='questions', on_delete=models.CASCADE,
+    )
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='حساب ثبت‌کننده', related_name='product_questions',
+        null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    display_name = models.CharField('نام نمایشی', max_length=80)
+    question = models.TextField('پرسش', max_length=2000)
+    answer = models.TextField('پاسخ مدیر', max_length=3000, blank=True)
+    status = models.CharField('وضعیت', max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='بررسی‌کننده', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reviewed_product_questions',
+    )
+    created_at = models.DateTimeField('زمان ثبت', auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
+    published_at = models.DateTimeField('زمان انتشار', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'پرسش محصول'
+        verbose_name_plural = 'پرسش‌های محصول'
+        ordering = ('-published_at', '-pk')
+        indexes = [models.Index(fields=('product', 'status', '-created_at'), name='product_question_pub_idx')]
+
+    def __str__(self):
+        return f'{self.product} — {self.display_name} — {self.get_status_display()}'
+
+
 class MediaItem(models.Model):
     class Kind(models.TextChoices):
         VIDEO = 'video', 'ویدیو'

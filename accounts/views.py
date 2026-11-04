@@ -3,11 +3,16 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
+import hashlib
+import ipaddress
+import json
+from urllib.parse import urlsplit
 
 from orders.cart import Cart
 
@@ -18,7 +23,7 @@ from .forms import (
     OTPVerificationForm,
     PriceAlertForm,
 )
-from .models import CustomerAddress, CustomerProfile, PriceAlert
+from .models import CustomerAddress, CustomerProfile, PriceAlert, PushSubscription
 from .services import (
     AccountInactive,
     OTPExpired,
@@ -255,6 +260,8 @@ def price_alerts_view(request):
     return render(request, 'accounts/price_alerts.html', {
         'form': form,
         'alerts': profile.price_alerts.select_related('variant__product').all(),
+        'vapid_public_key': settings.VAPID_PUBLIC_KEY,
+        'push_delivery_enabled': settings.PUSH_DELIVERY_ENABLED,
     })
 
 
@@ -278,6 +285,96 @@ def notifications_read(request):
         profile.notifications.filter(is_read=False).update(is_read=True)
     messages.success(request, 'اعلان‌ها به‌عنوان خوانده‌شده ثبت شدند.')
     return redirect('accounts:profile')
+
+
+def _push_endpoint_is_allowed(endpoint):
+    try:
+        parsed = urlsplit(endpoint)
+        hostname = (parsed.hostname or '').lower().rstrip('.')
+        port = parsed.port
+    except ValueError:
+        return False
+    if (
+        parsed.scheme != 'https' or not hostname or parsed.username or parsed.password
+        or port not in (None, 443) or parsed.fragment
+    ):
+        return False
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        return False
+    return any(hostname == suffix or hostname.endswith('.' + suffix) for suffix in settings.PUSH_ALLOWED_HOST_SUFFIXES)
+
+
+def _push_json_body(request):
+    try:
+        if int(request.META.get('CONTENT_LENGTH') or 0) > 8192:
+            return None
+    except ValueError:
+        return None
+    if len(request.body) > 8192:
+        return None
+    try:
+        value = json.loads(request.body.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+@login_required
+@never_cache
+@require_POST
+def push_subscribe(request):
+    if not settings.PUSH_DELIVERY_ENABLED or not settings.VAPID_PUBLIC_KEY:
+        return JsonResponse({'error': 'اعلان مرورگر در این محیط پیکربندی نشده است.'}, status=503)
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if not profile:
+        return JsonResponse({'error': 'حساب مشتری تأییدشده پیدا نشد.'}, status=403)
+    payload = _push_json_body(request)
+    subscription = payload.get('subscription') if payload else None
+    if not isinstance(subscription, dict):
+        return JsonResponse({'error': 'اطلاعات اشتراک مرورگر معتبر نیست.'}, status=400)
+    endpoint = subscription.get('endpoint', '')
+    keys = subscription.get('keys')
+    if (
+        not isinstance(endpoint, str) or len(endpoint) > 2048 or not _push_endpoint_is_allowed(endpoint)
+        or not isinstance(keys, dict)
+    ):
+        return JsonResponse({'error': 'نشانی سرویس اعلان معتبر یا پشتیبانی‌شده نیست.'}, status=400)
+    p256dh = keys.get('p256dh', '')
+    auth = keys.get('auth', '')
+    if (
+        not isinstance(p256dh, str) or not 20 <= len(p256dh) <= 200
+        or not isinstance(auth, str) or not 8 <= len(auth) <= 100
+    ):
+        return JsonResponse({'error': 'کلیدهای اشتراک مرورگر معتبر نیستند.'}, status=400)
+    endpoint_hash = hashlib.sha256(endpoint.encode('utf-8')).hexdigest()
+    try:
+        PushSubscription.objects.update_or_create(
+            endpoint_hash=endpoint_hash,
+            defaults={'profile': profile, 'endpoint': endpoint, 'p256dh': p256dh, 'auth': auth},
+        )
+    except IntegrityError:
+        return JsonResponse({'error': 'ذخیرهٔ اشتراک اعلان انجام نشد؛ دوباره تلاش کنید.'}, status=409)
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@never_cache
+@require_POST
+def push_unsubscribe(request):
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    payload = _push_json_body(request)
+    endpoint = payload.get('endpoint') if payload else None
+    if not profile:
+        return JsonResponse({'error': 'حساب مشتری تأییدشده پیدا نشد.'}, status=403)
+    if not isinstance(endpoint, str) or len(endpoint) > 2048 or not _push_endpoint_is_allowed(endpoint):
+        return JsonResponse({'error': 'نشانی اشتراک معتبر نیست.'}, status=400)
+    endpoint_hash = hashlib.sha256(endpoint.encode('utf-8')).hexdigest()
+    PushSubscription.objects.filter(profile=profile, endpoint_hash=endpoint_hash).delete()
+    return JsonResponse({'ok': True})
 
 
 @require_POST

@@ -2,7 +2,7 @@ from django import forms
 
 from core.phone import normalize_iran_mobile
 
-from .models import CompanyRequest
+from .models import CompanyRequest, ProductQuestion
 
 
 class CompanyRequestForm(forms.ModelForm):
@@ -57,3 +57,25 @@ class CompanyRequestForm(forms.ModelForm):
         if commit:
             request.save()
         return request
+
+
+class ProductQuestionForm(forms.ModelForm):
+    consent = forms.BooleanField(label='موافقم پرسشم پس از بازبینی، همراه با نام نمایشی منتشر شود.', required=True)
+    website = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    class Meta:
+        model = ProductQuestion
+        fields = ('display_name', 'question')
+        widgets = {'question': forms.Textarea(attrs={'rows': 4, 'maxlength': 2000})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['display_name'].required = False
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('website'):
+            raise forms.ValidationError('پرسش ثبت نشد.')
+        return cleaned

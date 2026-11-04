@@ -1,5 +1,7 @@
 import json
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,8 +10,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from core.seo import breadcrumb_schema
-from .forms import CompanyRequestForm
-from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MediaItem
+from .forms import CompanyRequestForm, ProductQuestionForm
+from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion
 
 
 PAGE_SIZE = 12
@@ -177,3 +179,79 @@ def faq_list(request):
             ('خانه', '/'), ('پرسش‌های متداول', request.path),
         ]),
     })
+
+
+def market_news_list(request):
+    news = MarketNews.objects.select_related(
+        'variant__product', 'variant__product__category', 'price_observation',
+    )
+    trend = request.GET.get('trend', '').strip()
+    if trend in MarketNews.Trend.values:
+        news = news.filter(trend=trend)
+    category = request.GET.get('category', '').strip()
+    selected_category = None
+    if category.isdigit():
+        from catalog.models import Category
+        selected_category = Category.objects.filter(pk=category, is_active=True).first()
+        if selected_category:
+            news = news.filter(variant__product__category=selected_category)
+    page_obj = Paginator(news, PAGE_SIZE).get_page(request.GET.get('page'))
+    return render(request, 'content/market_news_list.html', {
+        'page_obj': page_obj,
+        'news_items': page_obj.object_list,
+        'selected_trend': trend if trend in MarketNews.Trend.values else '',
+        'selected_category': selected_category,
+        'categories': MarketNews.objects.filter(
+            variant__product__category__is_active=True,
+        ).values_list('variant__product__category_id', 'variant__product__category__name').distinct().order_by('variant__product__category__name'),
+        'trends': MarketNews.Trend.choices,
+        'breadcrumb_schema': breadcrumb_schema(request, [('خانه', '/'), ('اخبار قیمت', request.path)]),
+    })
+
+
+def market_news_detail(request, pk):
+    item = get_object_or_404(
+        MarketNews.objects.select_related('variant__product__category', 'price_observation'),
+        pk=pk,
+    )
+    news_schema = {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        'headline': item.headline,
+        'datePublished': item.published_at.isoformat(),
+        'mainEntityOfPage': request.build_absolute_uri(item.get_absolute_url()),
+        'about': {'@type': 'Product', 'name': item.variant.product.name},
+        'publisher': {'@type': 'Organization', 'name': 'آهن‌آلات آریا'},
+    }
+    return render(request, 'content/market_news_detail.html', {
+        'news_item': item,
+        'news_schema': _json_ld(news_schema),
+        'breadcrumb_schema': breadcrumb_schema(request, [
+            ('خانه', '/'), ('اخبار قیمت', reverse('content:market_news_list')),
+            (item.headline, item.get_absolute_url()),
+        ]),
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def product_question_submit(request, slug):
+    from catalog.models import Product
+    from accounts.models import CustomerProfile
+
+    product = get_object_or_404(Product, slug=slug, is_active=True, category__is_active=True)
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if not profile:
+        messages.error(request, 'برای ثبت پرسش، حساب مشتری تأییدشده لازم است.')
+        return redirect(product.get_absolute_url())
+    form = ProductQuestionForm(request.POST)
+    if form.is_valid():
+        question = form.save(commit=False)
+        question.product = product
+        question.profile = profile
+        question.display_name = (question.display_name or profile.full_name or 'مشتری آریا').strip()[:80]
+        question.save()
+        messages.success(request, 'پرسش شما ثبت شد و پس از بازبینی منتشر می‌شود.')
+    else:
+        messages.error(request, 'پرسش ثبت نشد؛ موارد فرم را بررسی کنید.')
+    return redirect(f'{product.get_absolute_url()}#product-questions')

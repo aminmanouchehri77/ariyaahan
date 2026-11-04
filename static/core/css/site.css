@@ -625,3 +625,50 @@ textarea.form-control { min-height: 112px; resize: vertical; line-height: 1.9; }
 .account-notifications p{margin:.35rem 0}
 .account-notifications small,.saved-addresses span{display:block;color:#667486;font-size:.88rem}
 @media(max-width:560px){.account-links{display:grid}.result-card img{width:72px;height:60px;flex-basis:72px}}
+
+/* Search, richer filters, comparison, and price history */
+.search-form{position:relative}
+.search-suggestions{position:absolute;z-index:20;inset-inline:0;top:calc(100% + .35rem);display:grid;overflow:hidden;border:1px solid #d6dee7;border-radius:12px;background:#fff;box-shadow:0 12px 30px #14273f20}
+.search-suggestions[hidden]{display:none}
+.search-suggestions a{display:grid;gap:.2rem;padding:.75rem 1rem;color:var(--ink,#243247);text-decoration:none;border-bottom:1px solid #edf0f2}
+.search-suggestions a:last-child{border-bottom:0}
+.search-suggestions a:hover,.search-suggestions a[aria-selected="true"]{background:#f3f6f8}
+.search-suggestions small{color:#667486}
+.category-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+.category-filter-grid .form-field{display:grid;gap:.35rem;min-width:0}
+.category-filter-grid select,.category-filter-grid input{width:100%;min-height:44px}
+.filter-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.65rem}
+.field-error{color:#a4332b}
+.compare-inline-form,.variant-tools form{display:inline-flex;margin:0}
+.compare-inline-form .text-link,.variant-tools .text-link{font:inherit;background:none;border:0;padding:0;cursor:pointer}
+.variant-tools{display:flex;flex-wrap:wrap;gap:1rem;margin:.7rem 0}
+.comparison-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1rem}
+.comparison-card{display:grid;align-content:start;gap:1rem;padding:1.2rem;border:1px solid #dfe5eb;border-radius:16px;background:#fff}
+.comparison-card__head{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem}
+.comparison-card__head h2{font-size:1.15rem;margin:.3rem 0}
+.comparison-card__head p{margin:0;color:#68788a}
+.comparison-card .spec-grid{margin:0}
+.comparison-card__price{display:grid;gap:.35rem;padding-top:.8rem;border-top:1px solid #e7ebef}
+.comparison-card__price strong{font-size:1.25rem;color:var(--navy,#14273f)}
+.comparison-card__price small{color:#667486}
+.history-panel{margin-top:1.5rem;padding:1.2rem;border:1px solid #dfe5eb;border-radius:16px;background:#fff}
+.price-chart-wrap{width:100%;overflow:hidden}
+.price-chart{display:block;width:100%;height:auto;min-height:150px}
+.price-chart line{stroke:#d8e0e8;stroke-width:1}
+.price-chart polyline{fill:none;stroke:#b7802c;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.chart-range{display:flex;justify-content:space-between;gap:1rem;color:#667486;font-size:.9rem;margin:.5rem 0 1rem}
+.market-news-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:1rem}
+.market-news-card,.news-detail-card,.product-question{padding:1.15rem;border:1px solid #dfe5eb;border-radius:16px;background:#fff}
+.market-news-card__top,.market-news-card__foot{display:flex;justify-content:space-between;align-items:center;gap:.8rem;color:#68788a;font-size:.88rem}
+.market-news-card h3{font-size:1.08rem;line-height:1.7;margin:.8rem 0 .35rem}
+.market-news-card h3 a{color:var(--navy,#14273f);text-decoration:none}
+.market-news-card p{line-height:1.9;color:#526173}
+.market-news-card__foot{padding-top:.7rem;border-top:1px solid #edf0f2}
+.news-detail-card{display:grid;gap:1rem}
+.product-question-list{display:grid;gap:.8rem;margin:1rem 0 1.5rem}
+.product-question h3{font-size:1rem;margin:0 0 .45rem;line-height:1.8}
+.product-question__meta{color:#68788a;font-size:.88rem}
+.product-question__answer{border-inline-start:3px solid #b7802c;padding-inline-start:.9rem;margin-top:1rem}
+.product-question-form{margin-top:1.4rem}
+@media(max-width:900px){.category-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.category-filter-grid{grid-template-columns:minmax(0,1fr)}.filter-actions{align-items:stretch;flex-direction:column}.filter-actions .button{justify-content:center}.comparison-card{padding:1rem}.history-panel{padding:.8rem}.chart-range{flex-direction:column;gap:.25rem}}

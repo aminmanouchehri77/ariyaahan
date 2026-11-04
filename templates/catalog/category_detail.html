@@ -7,14 +7,12 @@
 {% block content %}
 <section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'catalog:category_list' %}">دسته‌بندی کالا</a><span>/</span><span>{{ category.name }}</span></nav><p class="eyebrow eyebrow--dark">فهرست قیمت و مشخصات</p><h1>{{ category.name }}</h1><p>{{ category.description|default:'گونه‌های محصول، مشخصات و قیمت ثبت‌شده در این دسته را بررسی کنید.' }}</p></div></section>
 <section class="section content-section"><div class="container">
-  <form class="filter-panel" method="get" action="{{ request.path }}">
-    <div class="filter-panel__intro"><strong>فیلتر کالا</strong><span>فیلترها در نشانی صفحه حفظ می‌شوند.</span></div>
-    <div class="filter-panel__row">
-      <label><span>سایز</span><input type="search" name="size" value="{{ size_filter }}" placeholder="مثلاً ۱۲ یا ۲ میلی‌متر"></label>
-      <label><span>کارخانه</span><input type="search" name="manufacturer" value="{{ manufacturer_filter }}" placeholder="نام کارخانه"></label>
-      <button class="button button--navy" type="submit">اعمال فیلتر</button>
-      {% if size_filter or manufacturer_filter %}<a class="button button--text" href="{{ request.path }}">پاک‌کردن</a>{% endif %}
+  <form class="filter-panel category-filter-form" method="get" action="{{ request.path }}">
+    <div class="filter-panel__intro"><strong>فیلتر کالا</strong><span>فیلترها و ترتیب نمایش در نشانی صفحه حفظ می‌شوند.</span></div>
+    <div class="category-filter-grid">
+      {% for field in filters %}<label class="form-field"><span>{{ field.label }}</span>{{ field }}{% if field.errors %}<small class="field-error">{{ field.errors|join:', ' }}</small>{% endif %}</label>{% endfor %}
     </div>
+    <div class="filter-actions"><button class="button button--navy" type="submit">اعمال فیلتر</button>{% if has_active_filters %}<a class="button button--text" href="{{ request.path }}">پاک‌کردن فیلترها</a>{% endif %}<a class="button button--outline" href="{% url 'catalog:compare' %}">مقایسهٔ کالاها ({{ compare_count|fa_digits }})</a></div>
   </form>
   <div class="results-heading"><h2>محصولات {{ category.name }}</h2><span>{{ page_obj.paginator.count|fa_digits }} گونه</span></div>
   {% if page_obj.object_list %}
@@ -28,12 +26,12 @@
           <td data-label="مشخصات">{% if variant.size %}سایز {{ variant.size }}{% endif %}{% if variant.grade %}<small class="table-sub">گرید {{ variant.grade }}</small>{% endif %}{% if variant.standard %}<small class="table-sub">{{ variant.standard }}</small>{% endif %}</td>
           <td class="price-cell" data-label="قیمت">{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}استعلام{% endif %}<small>{{ variant.latest_unit_label|default:variant.get_unit_display }}</small></td>
           <td data-label="آخرین ثبت">{% if variant.latest_observed_at %}<time datetime="{{ variant.latest_observed_at|date:'c' }}">{{ variant.latest_observed_at|jalali_datetime }}</time>{% else %}—{% endif %}{% if variant.latest_location %}<small class="table-sub">تحویل: {{ variant.latest_location }}</small>{% endif %}</td>
-          <td data-label="وضعیت">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">موجود</span>{% else %}<span class="tag tag--neutral">ناموجود</span>{% endif %}</td>
+          <td data-label="وضعیت">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">موجود</span>{% else %}<span class="tag tag--neutral">ناموجود</span>{% endif %}<form method="post" action="{% url 'catalog:compare_add' variant.pk %}" class="compare-inline-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="text-link" type="submit">افزودن به مقایسه</button></form></td>
         </tr>
       {% endfor %}</tbody>
     </table>
   </div>
-  {% else %}<div class="empty-state"><strong>{% if size_filter or manufacturer_filter %}با این فیلترها کالایی پیدا نشد{% else %}هنوز کالایی در این دسته ثبت نشده{% endif %}</strong><p>پس از ثبت محصولات و قیمت‌های معتبر در پنل، فهرست این دسته نمایش داده می‌شود.</p></div>{% endif %}
-  {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌بندی">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&amp;size={{ size_filter|urlencode }}&amp;manufacturer={{ manufacturer_filter|urlencode }}">صفحهٔ قبل</a>{% endif %}<span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&amp;size={{ size_filter|urlencode }}&amp;manufacturer={{ manufacturer_filter|urlencode }}">صفحهٔ بعد</a>{% endif %}</nav>{% endif %}
+  {% else %}<div class="empty-state"><strong>{% if has_active_filters %}با این فیلترها کالایی پیدا نشد{% else %}هنوز کالایی در این دسته ثبت نشده{% endif %}</strong><p>فیلترها را تغییر دهید یا پس از ثبت محصولات، این فهرست را دوباره بررسی کنید.</p></div>{% endif %}
+  {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌بندی">{% if previous_url %}<a href="{{ previous_url }}">صفحهٔ قبل</a>{% endif %}<span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>{% if next_url %}<a href="{{ next_url }}">صفحهٔ بعد</a>{% endif %}</nav>{% endif %}
 </div></section>
 {% endblock %}

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MediaItem
+from .models import Article, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion
 
 
 @admin.register(CompanyPage)
@@ -75,3 +75,37 @@ class CompanyRequestAdmin(admin.ModelAdmin):
         }),
         ('پیگیری داخلی', {'fields': ('assigned_to', 'admin_note', 'source_path', 'created_at', 'updated_at')}),
     )
+
+
+@admin.register(MarketNews)
+class MarketNewsAdmin(admin.ModelAdmin):
+    list_display = ('published_at', 'trend', 'variant', 'previous_amount', 'current_amount', 'change_percent', 'delivery_location')
+    list_filter = ('trend', 'currency', 'published_at')
+    search_fields = ('headline', 'variant__product__name', 'variant__name', 'delivery_location')
+    readonly_fields = tuple(field.name for field in MarketNews._meta.fields)
+    date_hierarchy = 'published_at'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ProductQuestion)
+class ProductQuestionAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'product', 'display_name', 'status', 'reviewer', 'published_at')
+    list_filter = ('status', 'created_at', 'published_at')
+    search_fields = ('product__name', 'display_name', 'question', 'answer')
+    readonly_fields = ('product', 'profile', 'display_name', 'question', 'created_at', 'updated_at', 'reviewer', 'published_at')
+    date_hierarchy = 'created_at'
+    fields = ('product', 'profile', 'display_name', 'question', 'answer', 'status', 'reviewer', 'published_at', 'created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        obj.reviewer = request.user
+        if obj.status in (ProductQuestion.Status.PUBLISHED, ProductQuestion.Status.ANSWERED) and not obj.published_at:
+            obj.published_at = timezone.now()
+        super().save_model(request, obj, form, change)

@@ -30,3 +30,6 @@ urlpatterns = [
     path('', include('content.urls')),
     path('<path:old_path>', legacy_route, name='legacy_redirect'),
 ]
+
+handler404 = 'core.views.page_not_found'
+handler500 = 'core.views.server_error'

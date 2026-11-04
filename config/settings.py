@@ -159,13 +159,22 @@ OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '5'))
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
 VAPID_PRIVATE_KEY_FILE = os.getenv('VAPID_PRIVATE_KEY_FILE', '').strip()
-VAPID_CLAIMS_EMAIL = os.getenv('VAPID_CLAIMS_EMAIL', '').strip()
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@localhost').strip()
+VAPID_CLAIMS_EMAIL = os.getenv('VAPID_CLAIMS_EMAIL', DEFAULT_FROM_EMAIL).strip()
+PUSH_DELIVERY_ENABLED = os.getenv('PUSH_DELIVERY_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+PUSH_ALLOWED_HOST_SUFFIXES = tuple(
+    host.strip().lower().lstrip('.')
+    for host in os.getenv(
+        'PUSH_ALLOWED_HOST_SUFFIXES',
+        'fcm.googleapis.com,fcmregistrations.googleapis.com,push.services.mozilla.com,notify.windows.com,push.apple.com',
+    ).split(',')
+    if host.strip()
+)
 PUBLIC_SITE_URL = os.getenv('PUBLIC_SITE_URL', '').strip().rstrip('/')
 TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()
 TWA_SHA256_CERT_FINGERPRINTS = os.getenv('TWA_SHA256_CERT_FINGERPRINTS', '').strip()
 PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', '').strip()
 PAYMENT_MERCHANT_ID = os.getenv('PAYMENT_MERCHANT_ID', '').strip()
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@localhost').strip()
 
 
 # Internationalization
@@ -197,8 +206,13 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "1").strip().lower() in {"1", "true", "yes", "on"}
+    SECURE_HSTS_SECONDS = max(0, int(os.getenv('SECURE_HSTS_SECONDS', '0')))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', '0').strip().lower() in {"1", "true", "yes", "on"}
