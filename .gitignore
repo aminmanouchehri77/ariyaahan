@@ -8,6 +8,7 @@ __pycache__/
 venv/
 staticfiles/
 media/
+/backups/
 .env.*
 !.env.example
 /tmp/
