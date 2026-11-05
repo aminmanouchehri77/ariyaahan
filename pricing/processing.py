@@ -10,7 +10,12 @@ from .models import PriceObservation
 
 
 def _publish_market_news(observation):
-    if observation.status != PriceObservation.Status.APPROVED:
+    if (
+        observation.status != PriceObservation.Status.APPROVED
+        or not observation.is_available
+        or not observation.valid_until
+        or observation.valid_until <= observation.observed_at
+    ):
         return
 
     latest = PriceObservation.objects.filter(
@@ -23,6 +28,8 @@ def _publish_market_news(observation):
     previous = PriceObservation.objects.filter(
         variant_id=observation.variant_id,
         status=PriceObservation.Status.APPROVED,
+        is_available=True,
+        valid_until__gt=observation.observed_at,
         currency=observation.currency,
         price_basis=observation.price_basis,
         tax_included=observation.tax_included,

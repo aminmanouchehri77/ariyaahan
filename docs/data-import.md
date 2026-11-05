@@ -22,7 +22,7 @@
 
 قالب: docs/price-import-template.csv
 
-variant_sku، amount، currency و price_basis لازم‌اند. ارز می‌تواند IRR، IRT یا USD باشد. واحد مبنا می‌تواند kg، ton، piece، bundle، sheet یا meter باشد. زمان‌ها در صورت ورود باید ISO 8601 همراه منطقهٔ زمانی باشند؛ نمونه: 2026-11-04T12:30:00+03:30. زمان اعتبار خالی یعنی قیمت برای محاسبهٔ پیش‌فاکتور معتبر نیست.
+variant_sku، amount، currency و price_basis لازم‌اند. ارز می‌تواند IRR، IRT یا USD باشد. واحد مبنا می‌تواند kg، ton، piece، bundle، sheet یا meter باشد. زمان‌ها در صورت ورود باید ISO 8601 همراه منطقهٔ زمانی باشند؛ نمونه: 2026-11-04T12:30:00+03:30. زمان اعتبار خالی یعنی قیمت برای محاسبهٔ پیش‌فاکتور معتبر نیست و مبنای هشدار درصدی یا خبر تغییر قیمت قرار نمی‌گیرد. هشدار قیمت فقط با مبلغ، ارز، واحد و قیمت تأییدشده‌ای بررسی می‌شود که موجود و هنوز معتبر باشد.
 
     python manage.py import_prices .\prices.csv
     python manage.py import_prices .\prices.csv --commit

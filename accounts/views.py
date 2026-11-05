@@ -4,7 +4,6 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError
-from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -363,7 +362,7 @@ def _latest_alert_baseline(alert):
         status=PriceObservation.Status.APPROVED,
         is_available=True,
     ).filter(
-        Q(valid_until__isnull=True) | Q(valid_until__gt=timezone.now()),
+        valid_until__gt=timezone.now(),
     ).order_by('-observed_at', '-pk').first()
 
 

@@ -9,7 +9,13 @@ from .models import CustomerNotification, PriceAlert
 
 
 def notify_price_alerts(observation):
-    if observation.status != PriceObservation.Status.APPROVED:
+    now = timezone.now()
+    if (
+        observation.status != PriceObservation.Status.APPROVED
+        or not observation.is_available
+        or not observation.valid_until
+        or observation.valid_until <= now
+    ):
         return
     latest_id = PriceObservation.objects.filter(
         variant_id=observation.variant_id,

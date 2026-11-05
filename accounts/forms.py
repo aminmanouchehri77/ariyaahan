@@ -2,7 +2,6 @@ import re
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.utils import timezone
 
 from catalog.models import ProductVariant
@@ -173,7 +172,7 @@ class PriceAlertForm(forms.ModelForm):
                     status=PriceObservation.Status.APPROVED,
                     is_available=True,
                 ).filter(
-                    Q(valid_until__isnull=True) | Q(valid_until__gt=timezone.now()),
+                    valid_until__gt=timezone.now(),
                 ).order_by('-observed_at', '-pk').first()
                 if not self.baseline_observation:
                     self.add_error(
