@@ -205,8 +205,39 @@ PUSH_ALLOWED_HOST_SUFFIXES = tuple(
 PUBLIC_SITE_URL = os.getenv('PUBLIC_SITE_URL', '').strip().rstrip('/')
 TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()
 TWA_SHA256_CERT_FINGERPRINTS = os.getenv('TWA_SHA256_CERT_FINGERPRINTS', '').strip()
-PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', '').strip()
-PAYMENT_MERCHANT_ID = os.getenv('PAYMENT_MERCHANT_ID', '').strip()
+PAYMENT_ENABLED = os.getenv('PAYMENT_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', '').strip().lower()
+SEP_TERMINAL_ID = os.getenv('SEP_TERMINAL_ID', '').strip()
+SEP_TOKEN_URL = os.getenv('SEP_TOKEN_URL', '').strip()
+SEP_PAYMENT_URL = os.getenv('SEP_PAYMENT_URL', '').strip()
+SEP_VERIFY_URL = os.getenv('SEP_VERIFY_URL', '').strip()
+
+if PAYMENT_PROVIDER not in {'', 'sep'}:
+    raise RuntimeError('Unsupported PAYMENT_PROVIDER. This project currently prepares only the SEP gateway.')
+
+if PAYMENT_ENABLED:
+    missing_payment_settings = [
+        name for name, value in (
+            ('PAYMENT_PROVIDER=sep', PAYMENT_PROVIDER == 'sep'),
+            ('SEP_TERMINAL_ID', SEP_TERMINAL_ID),
+            ('SEP_TOKEN_URL', SEP_TOKEN_URL),
+            ('SEP_PAYMENT_URL', SEP_PAYMENT_URL),
+            ('SEP_VERIFY_URL', SEP_VERIFY_URL),
+            ('PUBLIC_SITE_URL', PUBLIC_SITE_URL),
+        ) if not value
+    ]
+    if missing_payment_settings:
+        raise RuntimeError(
+            'Online payment cannot be enabled until SEP settings are supplied: '
+            + ', '.join(missing_payment_settings)
+        )
+    if not PUBLIC_SITE_URL.startswith('https://'):
+        raise RuntimeError('Online payment requires PUBLIC_SITE_URL to use HTTPS.')
+    if any(not url.startswith('https://') for url in (SEP_TOKEN_URL, SEP_PAYMENT_URL, SEP_VERIFY_URL)):
+        raise RuntimeError('SEP API and redirect URLs must use HTTPS.')
+    raise RuntimeError(
+        'SEP checkout is not implemented yet. Keep PAYMENT_ENABLED=0 until the bank API contract is integrated and verified.'
+    )
 
 
 # Internationalization
