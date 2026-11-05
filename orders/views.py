@@ -201,30 +201,74 @@ def submit_preinvoice(request):
         'delivery_city': selected_address.city if selected_address else form.cleaned_data['delivery_city'],
     }
 
+    late_quote_changes = []
+    needs_late_confirmation = False
+    cart_became_empty = False
+    preinvoice = None
     with transaction.atomic():
-        preinvoice = PreInvoice.objects.create(
-            customer=profile,
-            customer_name=form.cleaned_data['customer_name'],
-            mobile=form.cleaned_data['mobile'],
-            company_name=form.cleaned_data['company_name'],
-            **address_values,
-            customer_note=form.cleaned_data['customer_note'],
-            status=(
-                PreInvoice.Status.PENDING
-                if all(line['price_is_usable'] and line['stock_is_usable'] for line in context['cart_lines'])
-                else PreInvoice.Status.REVIEW
-            ),
+        cart = Cart(request)
+        variant_ids = sorted(int(variant_id) for variant_id in cart.items)
+        list(
+            ProductVariant.objects.select_for_update()
+            .filter(pk__in=variant_ids)
+            .order_by('pk')
         )
-        for line in context['cart_lines']:
-            snapshot = snapshot_line(line)
-            price_observation_id = snapshot.pop('price_observation_id')
-            stock_observation_id = snapshot.pop('stock_observation_id')
-            PreInvoiceItem.objects.create(
-                preinvoice=preinvoice,
-                price_observation_id=price_observation_id,
-                stock_observation_id=stock_observation_id,
-                **snapshot,
-            )
+
+        # Price and stock approvals take the same variant lock. Refresh the quote
+        # while holding it so an approval cannot slip between the final comparison
+        # and the pre-invoice snapshot being written.
+        context = build_cart_context(request)
+        cart_became_empty = context['cart_is_empty']
+        if not cart_became_empty:
+            locked_quote = checkout_quote_snapshot(context)
+            late_quote_changes = checkout_quote_changes(previous_quote, locked_quote)
+            if late_quote_changes:
+                request.session[CHECKOUT_QUOTE_SESSION_KEY] = locked_quote
+                request.session[CHECKOUT_ACK_SESSION_KEY] = True
+                request.session[CHECKOUT_CHANGES_SESSION_KEY] = late_quote_changes
+                needs_late_confirmation = True
+            elif request.session.get(CHECKOUT_ACK_SESSION_KEY) and not form.cleaned_data['price_confirmation']:
+                late_quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+                needs_late_confirmation = True
+            else:
+                preinvoice = PreInvoice.objects.create(
+                    customer=profile,
+                    customer_name=form.cleaned_data['customer_name'],
+                    mobile=form.cleaned_data['mobile'],
+                    company_name=form.cleaned_data['company_name'],
+                    **address_values,
+                    customer_note=form.cleaned_data['customer_note'],
+                    status=(
+                        PreInvoice.Status.PENDING
+                        if all(line['price_is_usable'] and line['stock_is_usable'] for line in context['cart_lines'])
+                        else PreInvoice.Status.REVIEW
+                    ),
+                )
+                for line in context['cart_lines']:
+                    snapshot = snapshot_line(line)
+                    price_observation_id = snapshot.pop('price_observation_id')
+                    stock_observation_id = snapshot.pop('stock_observation_id')
+                    PreInvoiceItem.objects.create(
+                        preinvoice=preinvoice,
+                        price_observation_id=price_observation_id,
+                        stock_observation_id=stock_observation_id,
+                        **snapshot,
+                    )
+
+    if cart_became_empty:
+        messages.warning(request, 'کالاهای سبد دیگر در دسترس نیستند؛ سبد را دوباره بررسی کنید.')
+        return redirect('orders:cart')
+    if needs_late_confirmation:
+        form_data = request.POST.copy()
+        form_data['price_confirmation'] = ''
+        form = PreInvoiceForm(form_data, addresses=addresses)
+        form.add_error(None, 'قیمت یا موجودی هنگام ثبت تغییر کرد؛ موارد تازه را بررسی و دوباره تأیید کنید.')
+        context['form'] = form
+        return render(request, 'orders/checkout.html', _set_checkout_quote_context(
+            context,
+            confirmation_required=True,
+            changes=late_quote_changes,
+        ))
 
     Cart(request).clear()
     _clear_checkout_quote(request)
