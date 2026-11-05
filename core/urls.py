@@ -1,5 +1,6 @@
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
+from django.views.generic import RedirectView
 
 from .sitemaps import ArticleSitemap, CategorySitemap, CompanyPageSitemap, MarketNewsSitemap, ProductSitemap, StaticPageSitemap
 from . import views
@@ -11,7 +12,8 @@ urlpatterns = [
     path('.well-known/assetlinks.json', views.assetlinks_json, name='assetlinks'),
     path('search/', views.search, name='search'),
     path('search/suggestions/', views.search_suggestions, name='search_suggestions'),
-    path('calculators/steel-weight/', views.weight_calculator, name='weight_calculator'),
+    path('tools/weight/', views.weight_calculator, name='weight_calculator'),
+    path('calculators/steel-weight/', RedirectView.as_view(pattern_name='core:weight_calculator', permanent=True, query_string=True), name='legacy_weight_calculator'),
     path('calculators/shipping/', views.shipping_calculator, name='shipping_calculator'),
     path('offline/', views.offline, name='offline'),
     path('robots.txt', views.robots_txt, name='robots'),
