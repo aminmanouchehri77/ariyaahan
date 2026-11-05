@@ -1,7 +1,11 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
-from .models import InventoryLocation, PriceObservation, PriceReviewEvent, ShippingRate, StockObservation
+from .models import (
+    InventoryLocation, PriceObservation, PriceObservationTask, PriceReviewEvent,
+    ShippingRate, StockObservation,
+)
 
 
 @admin.action(description='تأیید قیمت‌های انتخاب‌شده')
@@ -65,6 +69,34 @@ class PriceReviewEventAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.action(description='بازگرداندن کارهای ناموفق به صف پردازش')
+def retry_price_tasks(modeladmin, request, queryset):
+    retried = queryset.filter(status=PriceObservationTask.Status.FAILED).update(
+        status=PriceObservationTask.Status.PENDING,
+        attempts=0,
+        available_at=timezone.now(),
+        completed_at=None,
+        last_error='',
+    )
+    modeladmin.message_user(request, f'{retried} کار دوباره در صف قرار گرفت.')
+
+
+@admin.register(PriceObservationTask)
+class PriceObservationTaskAdmin(admin.ModelAdmin):
+    list_display = ('observation', 'status', 'attempts', 'available_at', 'completed_at', 'last_error')
+    list_filter = ('status', 'available_at', 'completed_at')
+    search_fields = ('observation__variant__product__name', 'observation__variant__name', 'last_error')
+    readonly_fields = tuple(field.name for field in PriceObservationTask._meta.fields)
+    actions = (retry_price_tasks,)
+    ordering = ('status', 'available_at', 'pk')
+
+    def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):

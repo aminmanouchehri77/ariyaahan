@@ -8,7 +8,10 @@ ROLE_MODELS = {
         'catalog': ('category', 'manufacturer', 'product', 'productvariant'),
     },
     'اپراتور قیمت و حمل': {
-        'pricing': ('priceobservation', 'pricereviewevent', 'inventorylocation', 'stockobservation', 'shippingrate'),
+        'pricing': (
+            'priceobservation', 'pricereviewevent', 'priceobservationtask',
+            'inventorylocation', 'stockobservation', 'shippingrate',
+        ),
     },
     'تحریریه محتوا': {
         'content': (
@@ -38,13 +41,19 @@ class Command(BaseCommand):
             for app_label, model_names in apps_models.items():
                 for model_name in model_names:
                     model = apps.get_model(app_label, model_name)
-                    codenames = [f'{action}_{model_name}' for action in ('view', 'add', 'change')]
+                    if model_name == 'priceobservationtask':
+                        codenames = [f'{action}_{model_name}' for action in ('view', 'change')]
+                    else:
+                        codenames = [f'{action}_{model_name}' for action in ('view', 'add', 'change')]
                     model_permissions = Permission.objects.filter(
                         content_type__app_label=app_label,
                         content_type__model=model._meta.model_name,
                         codename__in=codenames,
                     )
-                    if model_name in {'pricereviewevent', 'orderstatusevent', 'paymentrecord', 'customernotification', 'marketnews'}:
+                    if model_name in {
+                        'pricereviewevent', 'orderstatusevent', 'paymentrecord',
+                        'customernotification', 'marketnews',
+                    }:
                         model_permissions = model_permissions.filter(codename__startswith='view_')
                     permissions.extend(model_permissions)
             group.permissions.set(permissions)

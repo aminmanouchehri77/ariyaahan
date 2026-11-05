@@ -1,19 +1,21 @@
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from decimal import Decimal
+
 from django.urls import reverse
 from django.utils import timezone
-from decimal import Decimal
 
 from pricing.models import PriceObservation
 
 from .models import CustomerNotification, PriceAlert
 
 
-def _notify_price_alerts(observation_id):
-    observation = PriceObservation.objects.select_related('variant__product').filter(
-        pk=observation_id, status=PriceObservation.Status.APPROVED,
-    ).first()
-    if not observation:
+def notify_price_alerts(observation):
+    if observation.status != PriceObservation.Status.APPROVED:
+        return
+    latest_id = PriceObservation.objects.filter(
+        variant_id=observation.variant_id,
+        status=PriceObservation.Status.APPROVED,
+    ).order_by('-observed_at', '-pk').values_list('pk', flat=True).first()
+    if latest_id != observation.pk:
         return
 
     matching = PriceAlert.objects.filter(
@@ -50,6 +52,7 @@ def _notify_price_alerts(observation_id):
             )
         if not reached:
             continue
+
         _, created = CustomerNotification.objects.get_or_create(
             profile=alert.profile,
             price_alert=alert,
@@ -57,8 +60,14 @@ def _notify_price_alerts(observation_id):
             defaults={
                 'kind': CustomerNotification.Kind.PRICE,
                 'title': f'قیمت {observation.variant.product.name} به شرط شما رسید',
-                'body': f'قیمت ثبت‌شده {observation.amount} {observation.get_currency_display()} برای هر {observation.get_price_basis_display()} است.',
-                'target_url': reverse('catalog:product_detail', kwargs={'slug': observation.variant.product.slug}),
+                'body': (
+                    f'قیمت ثبت‌شده {observation.amount} {observation.get_currency_display()} '
+                    f'برای هر {observation.get_price_basis_display()} است.'
+                ),
+                'target_url': reverse(
+                    'catalog:product_detail',
+                    kwargs={'slug': observation.variant.product.slug},
+                ),
             },
         )
         if created:
@@ -66,13 +75,3 @@ def _notify_price_alerts(observation_id):
             if alert.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:
                 updates['is_active'] = False
             PriceAlert.objects.filter(pk=alert.pk).update(**updates)
-
-
-@receiver(post_save, sender=PriceObservation)
-def dispatch_price_alerts(sender, instance, created, update_fields=None, **kwargs):
-    if instance.status != PriceObservation.Status.APPROVED:
-        return
-    if created or update_fields is None or 'status' in update_fields:
-        from django.db import transaction
-
-        transaction.on_commit(lambda: _notify_price_alerts(instance.pk))

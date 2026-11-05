@@ -161,6 +161,36 @@ class PriceReviewEvent(models.Model):
         return f'{self.observation_id} — {self.get_action_display()} — {self.created_at:%Y-%m-%d %H:%M}'
 
 
+class PriceObservationTask(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'در صف پردازش'
+        COMPLETE = 'complete', 'پردازش‌شده'
+        FAILED = 'failed', 'نیازمند بازبینی'
+
+    observation = models.OneToOneField(
+        PriceObservation, verbose_name='ثبت قیمت', related_name='processing_task',
+        on_delete=models.PROTECT,
+    )
+    status = models.CharField('وضعیت پردازش', max_length=12, choices=Status.choices, default=Status.PENDING)
+    attempts = models.PositiveSmallIntegerField('تعداد تلاش', default=0)
+    available_at = models.DateTimeField('زمان تلاش بعدی', default=timezone.now, db_index=True)
+    completed_at = models.DateTimeField('زمان پایان', null=True, blank=True)
+    last_error = models.CharField('نوع آخرین خطا', max_length=80, blank=True)
+    created_at = models.DateTimeField('زمان ایجاد', auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField('آخرین تغییر', auto_now=True)
+
+    class Meta:
+        verbose_name = 'کار پردازش قیمت'
+        verbose_name_plural = 'صف پردازش قیمت‌ها'
+        ordering = ('available_at', 'pk')
+        indexes = [
+            models.Index(fields=('status', 'available_at'), name='price_task_due_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.observation_id} — {self.get_status_display()}'
+
+
 class InventoryLocation(models.Model):
     name = models.CharField('نام انبار / محل تحویل', max_length=140, unique=True)
     city = models.CharField('شهر', max_length=100, blank=True)
