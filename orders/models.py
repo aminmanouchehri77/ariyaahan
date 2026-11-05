@@ -241,22 +241,29 @@ class Order(models.Model):
             title = 'سفارش شما ثبت شد' if is_new else 'وضعیت سفارش تغییر کرد'
             _notify_customer_status(self.customer_id, title, self.get_status_display())
 
+    @transaction.atomic
     def set_status(self, status, actor=None, note=''):
+        if not self.pk:
+            raise ValueError('برای تغییر وضعیت، سفارش باید ابتدا ذخیره شده باشد.')
+
+        order = type(self).objects.select_for_update().get(pk=self.pk)
         transitions = {
-            self.Status.AWAITING_PAYMENT: {self.Status.PAID, self.Status.CANCELLED},
-            self.Status.PAID: {self.Status.PROCESSING, self.Status.CANCELLED, self.Status.REFUNDED},
-            self.Status.PROCESSING: {self.Status.SHIPPED, self.Status.CANCELLED, self.Status.REFUNDED},
-            self.Status.SHIPPED: {self.Status.DELIVERED, self.Status.REFUNDED},
-            self.Status.DELIVERED: {self.Status.REFUNDED},
-            self.Status.CANCELLED: set(),
-            self.Status.REFUNDED: set(),
+            order.Status.AWAITING_PAYMENT: {order.Status.PAID, order.Status.CANCELLED},
+            order.Status.PAID: {order.Status.PROCESSING, order.Status.CANCELLED, order.Status.REFUNDED},
+            order.Status.PROCESSING: {order.Status.SHIPPED, order.Status.CANCELLED, order.Status.REFUNDED},
+            order.Status.SHIPPED: {order.Status.DELIVERED, order.Status.REFUNDED},
+            order.Status.DELIVERED: {order.Status.REFUNDED},
+            order.Status.CANCELLED: set(),
+            order.Status.REFUNDED: set(),
         }
-        if status != self.status and status not in transitions.get(self.status, set()):
+        if status != order.status and status not in transitions.get(order.status, set()):
             raise ValueError('تغییر وضعیت انتخاب‌شده مجاز نیست.')
-        self.status = status
-        self._status_actor = actor
-        self._status_note = note[:500]
-        self.save(update_fields=('status', 'updated_at'))
+        order.status = status
+        order._status_actor = actor
+        order._status_note = note[:500]
+        order.save(update_fields=('status', 'updated_at'))
+        self.status = order.status
+        self.updated_at = order.updated_at
 
 
 class OrderItem(models.Model):
