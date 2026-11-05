@@ -145,6 +145,7 @@ LOGOUT_REDIRECT_URL = 'core:home'
 # configured. Production defaults to Kavenegar and requires its credentials.
 KAVENEGAR_API_KEY = os.getenv('KAVENEGAR_API_KEY', '').strip()
 KAVENEGAR_OTP_TEMPLATE = os.getenv('KAVENEGAR_OTP_TEMPLATE', '').strip()
+KAVENEGAR_ACCEPT_TEMPLATE = os.getenv('KAVENEGAR_ACCEPT_TEMPLATE', '').strip()
 KAVENEGAR_TIMEOUT = float(os.getenv('KAVENEGAR_TIMEOUT', '10'))
 DEFAULT_SMS_BACKEND = (
     'accounts.sms.KavenegarVerifyLookupBackend'

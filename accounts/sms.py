@@ -35,26 +35,41 @@ class ConsoleSMSBackend:
     def send_login_code(self, mobile, code):
         print(f'[LOCAL SMS to {mobile}] کد ورود آهن‌آلات آریا: {code}', flush=True)
 
+    def send_preinvoice_acceptance_code(self, mobile, code):
+        print(f'[LOCAL SMS to {mobile}] کد تأیید پذیرش پیش‌فاکتور آهن‌آلات آریا: {code}', flush=True)
+
 
 class KavenegarVerifyLookupBackend:
-    """Send login codes through Kavenegar's Verify Lookup endpoint."""
+    """Send purpose-specific codes through Kavenegar's Verify Lookup endpoint."""
 
     host = 'api.kavenegar.com'
 
     def __init__(self):
         self.api_key = settings.KAVENEGAR_API_KEY
         self.template = settings.KAVENEGAR_OTP_TEMPLATE
+        self.acceptance_template = settings.KAVENEGAR_ACCEPT_TEMPLATE
         if not self.api_key or not self.template:
             raise SMSBackendNotConfigured
         if not re.fullmatch(r'[A-Za-z0-9-]+', self.template):
             raise SMSBackendNotConfigured
 
     def send_login_code(self, mobile, code):
+        self._send_verify_lookup(mobile, code, self.template)
+
+    def send_preinvoice_acceptance_code(self, mobile, code):
+        self.validate_send_preinvoice_acceptance_code()
+        self._send_verify_lookup(mobile, code, self.acceptance_template)
+
+    def validate_send_preinvoice_acceptance_code(self):
+        if not self.acceptance_template or not re.fullmatch(r'[A-Za-z0-9-]+', self.acceptance_template):
+            raise SMSBackendNotConfigured
+
+    def _send_verify_lookup(self, mobile, code, template):
         path = f'/v1/{quote(self.api_key, safe="")}/verify/lookup.json'
         body = urlencode({
             'receptor': mobile,
             'token': code,
-            'template': self.template,
+            'template': template,
             'type': 'sms',
         }).encode('ascii')
         connection = http.client.HTTPSConnection(self.host, timeout=settings.KAVENEGAR_TIMEOUT)

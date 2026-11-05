@@ -46,6 +46,7 @@ class PreInvoice(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'در انتظار بررسی قیمت و موجودی'
         REVIEW = 'review', 'نیازمند بررسی قیمت/واحد/موجودی'
+        AWAITING_CUSTOMER = 'awaiting_customer', 'پیش‌فاکتور صادرشده؛ در انتظار پذیرش مشتری'
         CONFIRMED = 'confirmed', 'تأیید شده'
         CONVERTED = 'converted', 'تبدیل به سفارش'
         CANCELLED = 'cancelled', 'لغو شده'
@@ -70,7 +71,15 @@ class PreInvoice(models.Model):
     delivery_address = models.TextField('نشانی تحویل', blank=True)
     delivery_note = models.CharField('توضیح تحویل', max_length=300, blank=True)
     customer_note = models.TextField('توضیح خریدار', blank=True)
-    status = models.CharField('وضعیت', max_length=16, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField('وضعیت', max_length=24, choices=Status.choices, default=Status.PENDING)
+    quote_issued_at = models.DateTimeField('زمان صدور پیش‌فاکتور', null=True, blank=True)
+    quote_valid_until = models.DateTimeField('اعتبار پیش‌فاکتور تا', null=True, blank=True)
+    customer_accepted_at = models.DateTimeField('زمان پذیرش مشتری', null=True, blank=True)
+    customer_accepted_mobile = models.CharField('شمارهٔ همراه پذیرش‌کننده', max_length=11, blank=True)
+    acceptance_otp = models.ForeignKey(
+        'accounts.OTPChallenge', verbose_name='کد تأیید پذیرش', null=True, blank=True,
+        related_name='accepted_preinvoices', on_delete=models.SET_NULL,
+    )
     admin_note = models.TextField('یادداشت داخلی', blank=True)
     created_at = models.DateTimeField('زمان ثبت', auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)

@@ -543,6 +543,11 @@ textarea.form-control { min-height: 112px; resize: vertical; line-height: 1.9; }
 .receipt-status span { display: block; color: #82601f; font-size: 9px; }
 .receipt-status strong { display: block; margin-top: 3px; color: #654b1e; font-size: 13px; }
 .receipt-status p { margin: 7px 0 0; color: #7b6a4d; font-size: 10px; line-height: 1.8; }
+.receipt-acceptance { display: grid; gap: 12px; padding: 18px; border: 1px solid #d9e1e7; border-radius: 10px; background: #fff; }
+.receipt-acceptance h2 { margin: 0; color: var(--navy); font-size: 15px; }
+.receipt-acceptance p, .receipt-status small { margin: 0; color: #68798a; font-size: 10px; line-height: 1.9; }
+.receipt-acceptance__verify { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid #e5eaee; }
+.receipt-acceptance__verify .button { justify-self: start; }
 .receipt-items { padding: 20px; border: 1px solid var(--line); border-radius: 11px; background: white; }
 .receipt-items h2 { margin: 0 0 10px; color: var(--navy); font-size: 16px; }
 .receipt-item { display: flex; justify-content: space-between; gap: 16px; padding-block: 12px; border-top: 1px solid #edf0f2; }

@@ -109,6 +109,9 @@ class PriceObservation(models.Model):
 
     @transaction.atomic
     def approve(self, actor):
+        type(self)._meta.get_field('variant').remote_field.model.objects.select_for_update().get(
+            pk=self.variant_id,
+        )
         observation = type(self).objects.select_for_update().get(pk=self.pk)
         observation.status = self.Status.APPROVED
         observation.approved_by = actor
@@ -230,6 +233,9 @@ class StockObservation(models.Model):
 
     @transaction.atomic
     def approve(self, actor):
+        type(self)._meta.get_field('variant').remote_field.model.objects.select_for_update().get(
+            pk=self.variant_id,
+        )
         observation = type(self).objects.select_for_update().get(pk=self.pk)
         if observation.status == self.Status.REJECTED:
             raise ValidationError('ثبت موجودی ردشده را نمی‌توان تأیید کرد؛ ثبت تازه ایجاد کنید.')

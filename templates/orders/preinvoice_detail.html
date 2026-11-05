@@ -6,7 +6,32 @@
 {% block content %}
 <section class="section content-section"><div class="container receipt-layout">
   <div class="receipt-heading"><span class="receipt-check" aria-hidden="true">✓</span><div><p class="eyebrow eyebrow--dark">درخواست ثبت شد</p><h1>رسید درخواست پیش‌فاکتور</h1><p>شمارهٔ پیگیری: <strong>{{ preinvoice.pk|fa_digits }}</strong> · {{ preinvoice.created_at|jalali_datetime }}</p></div></div>
-  <div class="receipt-status"><span>وضعیت فعلی</span><strong>{{ preinvoice.get_status_display }}</strong><p>این رسید سفارش قطعی یا درخواست پرداخت نیست. کارشناس باید قیمت، موجودی و شرایط تحویل را تأیید کند.</p></div>
+  <div class="receipt-status"><span>وضعیت فعلی</span><strong>{{ preinvoice.get_status_display }}</strong>
+    {% if preinvoice.status == 'awaiting_customer' %}<p>کارشناس قیمت و موجودی را برای این پیش‌فاکتور ثبت کرده است. پذیرش شما برای ادامهٔ بررسی سفارش است و به‌تنهایی سفارش قطعی یا پرداخت ایجاد نمی‌کند.</p>
+      {% if preinvoice.quote_issued_at %}<small>صدور: {{ preinvoice.quote_issued_at|jalali_datetime }}{% if preinvoice.quote_valid_until %} · اعتبار تا {{ preinvoice.quote_valid_until|jalali_datetime }}{% endif %}</small>{% endif %}
+    {% elif preinvoice.status == 'confirmed' %}<p>پذیرش این پیش‌فاکتور با کد پیامکی ثبت شده است. کارشناس مرحلهٔ بعد را پیگیری می‌کند؛ هنوز پرداختی ثبت نشده است.</p>
+    {% else %}<p>این رسید سفارش قطعی یا درخواست پرداخت نیست. کارشناس باید قیمت، موجودی و شرایط تحویل را بررسی کند.</p>{% endif %}
+  </div>
+  {% if preinvoice.status == 'awaiting_customer' %}
+    <section class="receipt-acceptance" aria-labelledby="accept-quote-title">
+      <h2 id="accept-quote-title">بررسی و پذیرش پیش‌فاکتور</h2>
+      {% if quote_expired %}<p role="status">مهلت این پیش‌فاکتور تمام شده است. برای بررسی دوباره با کارشناس فروش تماس بگیرید.</p>
+      {% else %}
+        <p>برای اثبات دسترسی به شمارهٔ همراه ثبت‌شده، کد یک‌بارمصرف به {{ masked_mobile|fa_digits }} ارسال می‌شود.</p>
+        <form method="post" action="{% url 'orders:preinvoice_acceptance_code' preinvoice.public_id %}">
+          {% csrf_token %}<button class="button button--navy" type="submit">{% if otp_sent %}ارسال دوبارهٔ کد{% else %}درخواست کد تأیید{% endif %}</button>
+        </form>
+        {% if otp_sent %}
+          <form class="receipt-acceptance__verify" method="post" action="{% url 'orders:preinvoice_accept' preinvoice.public_id %}">
+            {% csrf_token %}
+            <div class="form-field">{{ accept_quote_form.code.label_tag }}{{ accept_quote_form.code }}</div>
+            <div class="form-field checkout-price-confirmation"><label for="{{ accept_quote_form.accept_quote.id_for_label }}">{{ accept_quote_form.accept_quote }} {{ accept_quote_form.accept_quote.label }}</label></div>
+            <button class="button button--gold" type="submit">تأیید کد و ثبت پذیرش</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </section>
+  {% endif %}
   <div class="receipt-items"><h2>اقلام ثبت‌شده</h2>
     {% for item in preinvoice_items %}<article class="receipt-item"><div><strong>{{ item.product_name }} — {{ item.variant_name }}</strong><span>{{ item.quantity|fa_digits }} {{ item.get_quantity_unit_display }}</span></div><div>{% if item.unit_price %}<span>آخرین مبلغ: {{ item.unit_price|money:item.currency }} / {{ item.price_unit_label|default:item.get_price_basis_display|default:'مبنای نامشخص' }}</span>{% else %}<span>قیمت ثبت نشده؛ نیازمند استعلام</span>{% endif %}{% if item.price_is_usable %}<strong>برآورد ردیف: {{ item.line_total|money:item.currency }}</strong>{% elif item.unit_price %}<small>مبلغ فقط سابقهٔ قیمت است و برای جمع معتبر استفاده نشده.</small>{% endif %}<small>موجودی هنگام ثبت: {% if item.stock_observation_id %}{{ item.stock_quantity|fa_digits }} {{ item.stock_unit }}{% if item.stock_location %} · {{ item.stock_location }}{% endif %}{% if item.stock_is_usable %} · برای مقدار درخواست‌شده کافی و معتبر{% else %} · نیازمند بررسی{% endif %}{% else %}ثبت معتبر موجودی در دسترس نبود؛ نیازمند بررسی{% endif %}</small>{% if item.stock_observed_at %}<small>زمان ثبت موجودی: {{ item.stock_observed_at|jalali_datetime }}{% if item.stock_valid_until %} · اعتبار تا {{ item.stock_valid_until|jalali_datetime }}{% endif %}</small>{% endif %}</div></article>{% endfor %}
   </div>

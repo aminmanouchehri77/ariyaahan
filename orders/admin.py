@@ -3,17 +3,26 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 
 from .models import Order, OrderItem, OrderStatusEvent, PaymentRecord, PreInvoice, PreInvoiceItem
-from .services import convert_preinvoice_to_order
+from .services import convert_preinvoice_to_order, issue_preinvoice_quote
 
 
-@admin.action(description='تأیید درخواست‌های انتخاب‌شده برای بررسی نهایی قیمت و موجودی')
-def confirm_preinvoices(modeladmin, request, queryset):
-    changed = 0
+@admin.action(description='صدور پیش‌فاکتورهای انتخاب‌شده برای پذیرش مشتری با کد پیامکی')
+def issue_preinvoice_quotes(modeladmin, request, queryset):
+    issued = 0
+    returned = 0
+    failed = 0
     for preinvoice in queryset.filter(status__in=(PreInvoice.Status.PENDING, PreInvoice.Status.REVIEW)):
-        preinvoice.status = PreInvoice.Status.CONFIRMED
-        preinvoice.save(update_fields=('status', 'updated_at'))
-        changed += 1
-    modeladmin.message_user(request, f'{changed} درخواست برای بررسی نهایی قیمت تأیید شد.')
+        try:
+            was_issued = issue_preinvoice_quote(preinvoice.pk)
+        except ValidationError as error:
+            failed += 1
+            modeladmin.message_user(request, f'درخواست #{preinvoice.pk}: {error}', level=messages.WARNING)
+        else:
+            if was_issued:
+                issued += 1
+            else:
+                returned += 1
+    modeladmin.message_user(request, f'{issued} پیش‌فاکتور برای پذیرش مشتری صادر شد؛ {returned} مورد به بررسی برگشت؛ {failed} مورد وضعیت قابل صدور نداشت.')
 
 
 @admin.action(description='ساخت سفارش از پیش‌فاکتورهای تأییدشده')
@@ -59,21 +68,39 @@ class PreInvoiceAdmin(admin.ModelAdmin):
     list_display = ('id', 'created_at', 'customer_name', 'mobile', 'delivery_city', 'status')
     list_filter = ('status', 'created_at')
     search_fields = ('customer_name', 'mobile', 'company_name', 'delivery_city')
-    readonly_fields = ('public_id', 'created_at', 'updated_at')
+    readonly_fields = (
+        'public_id', 'status', 'quote_issued_at', 'quote_valid_until',
+        'customer_accepted_at', 'customer_accepted_mobile', 'acceptance_otp', 'created_at', 'updated_at',
+    )
     date_hierarchy = 'created_at'
     ordering = ('status', '-created_at')
     inlines = (PreInvoiceItemInline,)
-    actions = (confirm_preinvoices, convert_preinvoices)
+    actions = (issue_preinvoice_quotes, convert_preinvoices)
     fieldsets = (
         ('مشخصات درخواست', {
             'fields': (
                 'public_id', 'customer', 'status', 'customer_name', 'mobile', 'company_name',
+                'quote_issued_at', 'quote_valid_until', 'customer_accepted_at', 'customer_accepted_mobile', 'acceptance_otp',
                 'delivery_city', 'delivery_recipient', 'delivery_mobile', 'delivery_province',
                 'delivery_postal_code', 'delivery_address', 'delivery_note', 'customer_note',
             ),
         }),
         ('پیگیری داخلی', {'fields': ('admin_note', 'created_at', 'updated_at')}),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        if obj and obj.status in (
+            PreInvoice.Status.AWAITING_CUSTOMER,
+            PreInvoice.Status.CONFIRMED,
+            PreInvoice.Status.CONVERTED,
+        ):
+            fields.extend((
+                'customer', 'customer_name', 'mobile', 'company_name', 'delivery_city',
+                'delivery_recipient', 'delivery_mobile', 'delivery_province',
+                'delivery_postal_code', 'delivery_address', 'delivery_note', 'customer_note',
+            ))
+        return tuple(dict.fromkeys(fields))
 
 
 class OrderItemInline(admin.TabularInline):

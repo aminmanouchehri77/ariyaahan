@@ -2,6 +2,7 @@ import secrets
 import uuid
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
@@ -33,8 +34,14 @@ def _retry_after(when, now):
     return max(1, int((when - now).total_seconds()) + 1)
 
 
-def issue_login_code(mobile, client_ip=''):
+def _issue_code(mobile, client_ip='', *, purpose, subject_key='', sender_method):
     backend = get_sms_backend()
+    sender = getattr(backend, sender_method, None)
+    if not callable(sender):
+        raise SMSBackendNotConfigured
+    validator = getattr(backend, f'validate_{sender_method}', None)
+    if callable(validator):
+        validator()
     now = timezone.now()
     resend_seconds = settings.OTP_RESEND_SECONDS
     hour = timedelta(hours=1)
@@ -69,10 +76,14 @@ def issue_login_code(mobile, client_ip=''):
 
         OTPChallenge.objects.filter(
             mobile=mobile,
+            purpose=purpose,
+            subject_key=subject_key,
             consumed_at__isnull=True,
         ).update(consumed_at=now)
         challenge = OTPChallenge.objects.create(
             mobile=mobile,
+            purpose=purpose,
+            subject_key=subject_key,
             code_hash=make_password(code),
             client_ip=client_ip,
             expires_at=expires_at,
@@ -82,12 +93,77 @@ def issue_login_code(mobile, client_ip=''):
         throttle.save(update_fields=('window_started_at', 'last_sent_at', 'sends_in_window'))
 
     try:
-        backend.send_login_code(mobile, code)
+        sender(mobile, code)
     except Exception as error:
         OTPChallenge.objects.filter(pk=challenge.pk, consumed_at__isnull=True).update(consumed_at=timezone.now())
         if isinstance(error, (SMSBackendNotConfigured, SMSDeliveryFailed)):
             raise
         raise SMSDeliveryFailed from error
+
+
+def issue_login_code(mobile, client_ip=''):
+    return _issue_code(
+        mobile,
+        client_ip,
+        purpose=OTPChallenge.Purpose.LOGIN,
+        sender_method='send_login_code',
+    )
+
+
+def issue_preinvoice_acceptance_code(mobile, public_id, client_ip=''):
+    return _issue_code(
+        mobile,
+        client_ip,
+        purpose=OTPChallenge.Purpose.PREINVOICE_ACCEPTANCE,
+        subject_key=str(public_id),
+        sender_method='send_preinvoice_acceptance_code',
+    )
+
+
+def verify_preinvoice_acceptance_code(mobile, public_id, code):
+    now = timezone.now()
+    error = None
+    with transaction.atomic():
+        challenge = OTPChallenge.objects.select_for_update().filter(
+            mobile=mobile,
+            purpose=OTPChallenge.Purpose.PREINVOICE_ACCEPTANCE,
+            subject_key=str(public_id),
+        ).order_by('-created_at', '-pk').first()
+
+        if not challenge or challenge.consumed_at:
+            error = OTPInvalid
+        elif challenge.expires_at <= now:
+            challenge.consumed_at = now
+            challenge.save(update_fields=('consumed_at',))
+            error = OTPExpired
+        elif challenge.attempt_count >= settings.OTP_MAX_ATTEMPTS:
+            challenge.consumed_at = now
+            challenge.save(update_fields=('consumed_at',))
+            error = OTPInvalid
+        else:
+            challenge.attempt_count += 1
+            if not check_password(code, challenge.code_hash):
+                if challenge.attempt_count >= settings.OTP_MAX_ATTEMPTS:
+                    challenge.consumed_at = now
+                challenge.save(update_fields=('attempt_count', 'consumed_at'))
+                error = OTPInvalid
+            else:
+                challenge.consumed_at = now
+                challenge.save(update_fields=('attempt_count', 'consumed_at'))
+
+    if error is OTPExpired:
+        raise OTPExpired
+    if error:
+        raise OTPInvalid
+    return challenge
+
+
+def invalidate_preinvoice_acceptance_codes(public_id):
+    return OTPChallenge.objects.filter(
+        purpose=OTPChallenge.Purpose.PREINVOICE_ACCEPTANCE,
+        subject_key=str(public_id),
+        consumed_at__isnull=True,
+    ).update(consumed_at=timezone.now())
 
 
 def verify_login_code(mobile, code, full_name=''):
@@ -98,6 +174,8 @@ def verify_login_code(mobile, code, full_name=''):
     with transaction.atomic():
         challenge = OTPChallenge.objects.select_for_update().filter(
             mobile=mobile,
+            purpose=OTPChallenge.Purpose.LOGIN,
+            subject_key='',
         ).order_by('-created_at', '-pk').first()
 
         if not challenge or challenge.consumed_at:

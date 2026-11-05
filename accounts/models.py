@@ -209,7 +209,13 @@ class OTPThrottle(models.Model):
 
 
 class OTPChallenge(models.Model):
+    class Purpose(models.TextChoices):
+        LOGIN = 'login', 'ورود به حساب'
+        PREINVOICE_ACCEPTANCE = 'preinvoice_acceptance', 'پذیرش پیش‌فاکتور'
+
     mobile = models.CharField('شمارهٔ همراه', max_length=11, db_index=True)
+    purpose = models.CharField('کاربرد کد', max_length=24, choices=Purpose.choices, default=Purpose.LOGIN, db_index=True)
+    subject_key = models.CharField('شناسهٔ درخواست مرتبط', max_length=64, blank=True)
     code_hash = models.CharField('هش کد یک‌بارمصرف', max_length=128)
     client_ip = models.CharField('نشانی IP درخواست‌کننده', max_length=45, blank=True, db_index=True)
     created_at = models.DateTimeField('زمان ایجاد', auto_now_add=True, db_index=True)
@@ -224,6 +230,7 @@ class OTPChallenge(models.Model):
         indexes = [
             models.Index(fields=('mobile', 'created_at'), name='otp_mobile_created_idx'),
             models.Index(fields=('client_ip', 'created_at'), name='otp_ip_created_idx'),
+            models.Index(fields=('purpose', 'subject_key', 'created_at'), name='otp_subject_created_idx'),
         ]
 
     def __str__(self):

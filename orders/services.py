@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from catalog.models import ProductVariant
-from pricing.models import PriceObservation, StockObservation
+from pricing.models import InventoryLocation, PriceObservation, StockObservation
 from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 
 from .cart import Cart
@@ -281,29 +281,182 @@ def checkout_quote_changes(previous, current):
     return changes
 
 
+def _return_preinvoice_to_review(preinvoice, note):
+    preinvoice.status = PreInvoice.Status.REVIEW
+    preinvoice.admin_note = (preinvoice.admin_note + f'\n{note}').strip()[:5000]
+    preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+
+
 @transaction.atomic
-def convert_preinvoice_to_order(preinvoice_id, actor=None):
-    """Convert a confirmed quote only while its captured price and stock remain valid."""
-    preinvoice = PreInvoice.objects.select_for_update().select_related('customer').get(pk=preinvoice_id)
-    if preinvoice.status != PreInvoice.Status.CONFIRMED:
-        raise ValidationError('ابتدا درخواست پیش‌فاکتور را بررسی و تأیید کنید.')
-    if hasattr(preinvoice, 'order'):
-        raise ValidationError('برای این پیش‌فاکتور قبلاً سفارش ساخته شده است.')
+def issue_preinvoice_quote(preinvoice_id):
+    """Refresh a request from approved price/stock data and issue it for OTP-protected acceptance."""
+    preinvoice = PreInvoice.objects.select_for_update().get(pk=preinvoice_id)
+    if preinvoice.status not in (PreInvoice.Status.PENDING, PreInvoice.Status.REVIEW):
+        raise ValidationError('فقط درخواست‌های در انتظار بررسی یا نیازمند بررسی را می‌توان صادر کرد.')
 
-    lines = list(preinvoice.items.select_related('variant__product').order_by('pk'))
-    currencies = {line.currency for line in lines if line.price_is_usable and line.currency}
-    if not lines or len(currencies) != 1 or any(not line.price_is_usable for line in lines):
-        preinvoice.status = PreInvoice.Status.REVIEW
-        preinvoice.admin_note = (preinvoice.admin_note + '\nرد خودکار تبدیل: ردیف‌ها قیمت معتبر و یک ارز مشترک ندارند.').strip()[:5000]
-        preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
-        return None
+    lines = list(
+        preinvoice.items.select_for_update().select_related('variant__product__category').order_by('pk')
+    )
+    if not lines:
+        _return_preinvoice_to_review(preinvoice, 'صدور پیش‌فاکتور رد شد: ردیفی برای بررسی وجود ندارد.')
+        return False
 
+    variant_ids = sorted({line.variant_id for line in lines if line.variant_id})
+    locked_variants = list(
+        ProductVariant.objects.select_for_update()
+        .filter(pk__in=variant_ids)
+        .order_by('pk')
+    )
+    variants = mark_stock_state(mark_price_state(list(latest_stock_observations(with_latest_price(
+        ProductVariant.objects.filter(pk__in=[variant.pk for variant in locked_variants])
+        .select_related('product__category', 'manufacturer')
+    )))))
+    variants_by_id = {variant.pk: variant for variant in variants}
+    from accounts.models import CustomerProfile
+    from accounts.services import invalidate_preinvoice_acceptance_codes
+
+    stock_records = {
+        observation.pk: observation
+        for observation in StockObservation.objects.select_related('location')
+        .filter(pk__in=[variant.latest_stock_observation_id for variant in variants if variant.latest_stock_observation_id])
+        .order_by('pk')
+    }
+    location_ids = sorted({observation.location_id for observation in stock_records.values()})
+    locked_locations = {
+        location.pk: location
+        for location in InventoryLocation.objects.select_for_update()
+        .filter(pk__in=location_ids)
+        .order_by('pk')
+    }
+
+    currencies = set()
+    valid_until_values = []
+    refreshed_items = []
     now = timezone.now()
+
     for line in lines:
-        latest = PriceObservation.objects.select_for_update().filter(
-            variant_id=line.variant_id,
+        variant = variants_by_id.get(line.variant_id)
+        if (
+            not variant
+            or not variant.is_active
+            or not variant.product.is_active
+            or not variant.product.category.is_active
+            or variant.unit != line.quantity_unit
+        ):
+            _return_preinvoice_to_review(preinvoice, 'صدور پیش‌فاکتور رد شد: یکی از کالاها غیرفعال، حذف‌شده یا دارای واحد متفاوت است.')
+            return False
+
+        line_total = _line_total(variant, line.quantity)
+        stock_record = stock_records.get(variant.latest_stock_observation_id)
+        location = locked_locations.get(stock_record.location_id) if stock_record else None
+        if (
+            line_total is None
+            or not variant.latest_price_observation_id
+            or not variant.latest_valid_until
+            or variant.latest_valid_until <= now
+            or not _stock_is_usable(variant, line.quantity)
+            or not location
+            or not location.is_active
+        ):
+            _return_preinvoice_to_review(preinvoice, 'صدور پیش‌فاکتور رد شد: قیمت یا موجودی معتبر و کافی برای یکی از ردیف‌ها موجود نیست.')
+            return False
+
+        currencies.add(variant.latest_currency)
+        valid_until_values.extend((variant.latest_valid_until, variant.latest_stock_valid_until))
+        refreshed_items.append((line, variant, line_total))
+
+    if len(currencies) != 1 or '' in currencies:
+        _return_preinvoice_to_review(preinvoice, 'صدور پیش‌فاکتور رد شد: ارز ردیف‌ها یکسان یا مشخص نیست.')
+        return False
+
+    for line, variant, line_total in refreshed_items:
+        line.variant = variant
+        line.price_observation_id = variant.latest_price_observation_id
+        line.product_name = variant.product.name
+        line.variant_name = variant.name
+        line.sku = variant.sku or ''
+        line.unit_price = variant.latest_amount
+        line.currency = variant.latest_currency
+        line.price_basis = variant.latest_price_basis or ''
+        line.price_unit_label = variant.latest_unit_label or ''
+        line.line_total = line_total
+        line.price_is_usable = True
+        line.tax_included = variant.latest_tax_included
+        line.availability = variant.latest_available
+        line.price_location = variant.latest_location or ''
+        line.price_observed_at = variant.latest_observed_at
+        line.price_valid_until = variant.latest_valid_until
+        line.stock_observation_id = variant.latest_stock_observation_id
+        line.stock_quantity = variant.latest_stock_quantity
+        line.stock_unit = variant.latest_stock_unit or ''
+        line.stock_is_usable = True
+        line.stock_available = variant.latest_stock_available
+        line.stock_location = variant.latest_stock_location or ''
+        line.stock_source = variant.latest_stock_source or ''
+        line.stock_observed_at = variant.latest_stock_observed_at
+        line.stock_valid_until = variant.latest_stock_valid_until
+        line.save()
+
+    preinvoice.quote_issued_at = now
+    preinvoice.quote_valid_until = min(valid_until_values)
+    if not preinvoice.customer_id:
+        preinvoice.customer = CustomerProfile.objects.filter(mobile=preinvoice.mobile).first()
+    preinvoice.customer_accepted_at = None
+    preinvoice.customer_accepted_mobile = ''
+    preinvoice.acceptance_otp = None
+    preinvoice.status = PreInvoice.Status.AWAITING_CUSTOMER
+    invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+    preinvoice.save(update_fields=(
+        'quote_issued_at', 'quote_valid_until', 'customer_accepted_at',
+        'customer_accepted_mobile', 'acceptance_otp', 'status', 'updated_at',
+    ))
+    return True
+
+
+def captured_quote_is_current(lines):
+    """Lock each product before comparing captured prices and inventory to approved records."""
+    variant_ids = sorted({line.variant_id for line in lines if line.variant_id})
+    locked_variants = {
+        variant.pk: variant
+        for variant in ProductVariant.objects.select_for_update()
+        .filter(pk__in=variant_ids)
+        .select_related('product__category')
+        .order_by('pk')
+    }
+    now = timezone.now()
+    latest_prices = {}
+    latest_stocks = {}
+    for variant_id in variant_ids:
+        latest_prices[variant_id] = PriceObservation.objects.filter(
+            variant_id=variant_id,
             status=PriceObservation.Status.APPROVED,
-        ).order_by('-observed_at', '-pk').first() if line.variant_id else None
+        ).order_by('-observed_at', '-pk').first()
+        latest_stocks[variant_id] = StockObservation.objects.select_related('location').filter(
+            variant_id=variant_id,
+            status=StockObservation.Status.APPROVED,
+        ).order_by('-observed_at', '-pk').first()
+    location_ids = sorted({
+        stock.location_id for stock in latest_stocks.values() if stock
+    })
+    locked_locations = {
+        location.pk: location
+        for location in InventoryLocation.objects.select_for_update()
+        .filter(pk__in=location_ids)
+        .order_by('pk')
+    }
+
+    for line in lines:
+        variant = locked_variants.get(line.variant_id)
+        if (
+            not variant
+            or not variant.is_active
+            or not variant.product.is_active
+            or not variant.product.category.is_active
+            or variant.unit != line.quantity_unit
+        ):
+            return False, 'واحد یا وضعیت کالای پیش‌فاکتور از زمان صدور تغییر کرده است.'
+
+        latest = latest_prices.get(line.variant_id)
         if (
             not latest
             or latest.pk != line.price_observation_id
@@ -313,34 +466,80 @@ def convert_preinvoice_to_order(preinvoice_id, actor=None):
             or latest.amount != line.unit_price
             or latest.currency != line.currency
             or latest.price_basis != line.price_basis
-            or (line.variant and line.variant.unit != line.quantity_unit)
+            or latest.tax_included != line.tax_included
+            or latest.delivery_location != line.price_location
+            or latest.observed_at != line.price_observed_at
+            or latest.valid_until != line.price_valid_until
         ):
-            preinvoice.status = PreInvoice.Status.REVIEW
-            preinvoice.admin_note = (preinvoice.admin_note + '\nرد خودکار تبدیل: قیمت یا موجودی تغییر کرده/منقضی شده است.').strip()[:5000]
-            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
-            return None
+            return False, 'قیمت پیش‌فاکتور تغییر کرده یا اعتبار آن پایان یافته است.'
 
-        latest_stock = StockObservation.objects.select_for_update().filter(
-            variant_id=line.variant_id,
-            status=StockObservation.Status.APPROVED,
-        ).order_by('-observed_at', '-pk').first() if line.variant_id else None
+        latest_stock = latest_stocks.get(line.variant_id)
         stock_quantity = _convert_stock_quantity(
-            latest_stock.quantity, latest_stock.unit, line.variant,
-        ) if latest_stock and line.variant else None
+            latest_stock.quantity, latest_stock.unit, variant,
+        ) if latest_stock else None
+        location = locked_locations.get(latest_stock.location_id) if latest_stock else None
         if (
             not line.stock_is_usable
             or not latest_stock
             or latest_stock.pk != line.stock_observation_id
+            or latest_stock.quantity != line.stock_quantity
+            or latest_stock.unit != line.stock_unit
             or not latest_stock.is_available
             or not latest_stock.valid_until
             or latest_stock.valid_until <= now
+            or not location
+            or not location.is_active
+            or latest_stock.location.name != line.stock_location
+            or latest_stock.source != line.stock_source
+            or latest_stock.observed_at != line.stock_observed_at
+            or latest_stock.valid_until != line.stock_valid_until
             or stock_quantity is None
             or stock_quantity < line.quantity
         ):
-            preinvoice.status = PreInvoice.Status.REVIEW
-            preinvoice.admin_note = (preinvoice.admin_note + '\nرد خودکار تبدیل: موجودی تأییدشده تغییر کرده، ناکافی یا منقضی شده است.').strip()[:5000]
-            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
-            return None
+            return False, 'موجودی پیش‌فاکتور تغییر کرده، کافی نیست یا اعتبار آن پایان یافته است.'
+    return True, ''
+
+
+@transaction.atomic
+def convert_preinvoice_to_order(preinvoice_id, actor=None):
+    """Convert a confirmed quote only while its captured price and stock remain valid."""
+    preinvoice = PreInvoice.objects.select_for_update().select_related('customer').get(pk=preinvoice_id)
+    if preinvoice.status != PreInvoice.Status.CONFIRMED:
+        raise ValidationError('ابتدا درخواست پیش‌فاکتور را بررسی و تأیید کنید.')
+    if hasattr(preinvoice, 'order'):
+        raise ValidationError('برای این پیش‌فاکتور قبلاً سفارش ساخته شده است.')
+
+    from accounts.models import OTPChallenge
+
+    accepted_challenge = OTPChallenge.objects.select_for_update().filter(
+        pk=preinvoice.acceptance_otp_id,
+    ).first() if preinvoice.acceptance_otp_id else None
+    if (
+        not preinvoice.customer_accepted_at
+        or preinvoice.customer_accepted_mobile != preinvoice.mobile
+        or not accepted_challenge
+        or accepted_challenge.purpose != OTPChallenge.Purpose.PREINVOICE_ACCEPTANCE
+        or accepted_challenge.subject_key != str(preinvoice.public_id)
+        or accepted_challenge.mobile != preinvoice.mobile
+        or not accepted_challenge.consumed_at
+        or accepted_challenge.created_at > preinvoice.customer_accepted_at
+        or accepted_challenge.expires_at < preinvoice.customer_accepted_at
+    ):
+        _return_preinvoice_to_review(preinvoice, 'تبدیل رد شد: پذیرش ثبت‌شدهٔ مشتری با شمارهٔ ثبت‌شده مطابقت ندارد.')
+        return None
+
+    lines = list(preinvoice.items.select_related('variant__product').order_by('pk'))
+    currencies = {line.currency for line in lines if line.price_is_usable and line.currency}
+    if not lines or len(currencies) != 1 or any(not line.price_is_usable for line in lines):
+        preinvoice.status = PreInvoice.Status.REVIEW
+        preinvoice.admin_note = (preinvoice.admin_note + '\nرد خودکار تبدیل: ردیف‌ها قیمت معتبر و یک ارز مشترک ندارند.').strip()[:5000]
+        preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+        return None
+
+    current, reason = captured_quote_is_current(lines)
+    if not current or not preinvoice.quote_valid_until or preinvoice.quote_valid_until <= timezone.now():
+        _return_preinvoice_to_review(preinvoice, f'تبدیل رد شد: {reason or "مهلت پیش‌فاکتور پایان یافته است."}')
+        return None
 
     order = Order(
         preinvoice=preinvoice,

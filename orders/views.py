@@ -1,17 +1,30 @@
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
+from urllib.parse import urlencode
 
 from catalog.models import ProductVariant
 from accounts.models import CustomerProfile
+from accounts.services import (
+    OTPExpired,
+    OTPInvalid,
+    OTPRateLimited,
+    invalidate_preinvoice_acceptance_codes,
+    issue_preinvoice_acceptance_code,
+    verify_preinvoice_acceptance_code,
+)
+from accounts.sms import SMSBackendNotConfigured, SMSDeliveryFailed
 
 from .cart import Cart, CartError
-from .forms import CartQuantityForm, PreInvoiceForm
+from .forms import AcceptPreInvoiceQuoteForm, CartQuantityForm, PreInvoiceForm
 from .models import PreInvoice, PreInvoiceItem
 from .services import (
     build_cart_context,
+    captured_quote_is_current,
     checkout_quote_changes,
     checkout_quote_snapshot,
     snapshot_line,
@@ -21,6 +34,7 @@ from .services import (
 CHECKOUT_QUOTE_SESSION_KEY = 'ariaa_checkout_quote'
 CHECKOUT_ACK_SESSION_KEY = 'ariaa_checkout_quote_ack_required'
 CHECKOUT_CHANGES_SESSION_KEY = 'ariaa_checkout_quote_changes'
+PREINVOICE_ACCEPTANCE_SESSION_KEY = 'ariaa_preinvoice_acceptance'
 
 
 def _set_checkout_quote_context(context, *, confirmation_required=False, changes=None):
@@ -233,8 +247,146 @@ def preinvoice_detail(request, public_id):
         'preinvoice': preinvoice,
         'preinvoice_items': lines,
         'currency_totals': totals,
+        'accept_quote_form': AcceptPreInvoiceQuoteForm(),
+        'otp_sent': request.session.get(PREINVOICE_ACCEPTANCE_SESSION_KEY) == str(preinvoice.public_id),
+        'masked_mobile': f'{preinvoice.mobile[:4]}*****{preinvoice.mobile[-2:]}',
+        'quote_expired': bool(
+            preinvoice.quote_valid_until and preinvoice.quote_valid_until <= timezone.now()
+        ),
     })
     response['Cache-Control'] = 'private, no-store'
     response['X-Robots-Tag'] = 'noindex, nofollow'
     response['Referrer-Policy'] = 'no-referrer'
     return response
+
+
+@never_cache
+@require_POST
+def request_preinvoice_acceptance_code(request, public_id):
+    preinvoice = get_object_or_404(PreInvoice, public_id=public_id)
+    detail_url = reverse('orders:preinvoice_detail', kwargs={'public_id': public_id})
+    with transaction.atomic():
+        preinvoice = PreInvoice.objects.select_for_update().get(pk=preinvoice.pk)
+        if preinvoice.status != PreInvoice.Status.AWAITING_CUSTOMER:
+            messages.warning(request, 'این پیش‌فاکتور برای پذیرش در دسترس نیست.')
+            return redirect(detail_url)
+        now = timezone.now()
+        if not preinvoice.quote_valid_until or preinvoice.quote_valid_until <= now:
+            preinvoice.status = PreInvoice.Status.REVIEW
+            preinvoice.admin_note = (preinvoice.admin_note + '\nارسال کد انجام نشد: مهلت پیش‌فاکتور پایان یافته است.').strip()[:5000]
+            invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+            messages.warning(request, 'مهلت پیش‌فاکتور پایان یافته است؛ درخواست برای به‌روزرسانی به کارشناس برگشت.')
+            return redirect(detail_url)
+
+        lines = list(preinvoice.items.select_related('variant__product__category'))
+        current, reason = captured_quote_is_current(lines)
+        if not current or preinvoice.quote_valid_until <= timezone.now():
+            preinvoice.status = PreInvoice.Status.REVIEW
+            preinvoice.admin_note = (preinvoice.admin_note + f'\nارسال کد انجام نشد: {reason}').strip()[:5000]
+            invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+            messages.warning(request, 'قیمت یا موجودی تغییر کرده است؛ درخواست برای صدور پیش‌فاکتور تازه به کارشناس برگشت.')
+            return redirect(detail_url)
+
+    try:
+        issue_preinvoice_acceptance_code(
+            preinvoice.mobile,
+            preinvoice.public_id,
+            client_ip=request.META.get('REMOTE_ADDR', '')[:45],
+        )
+    except OTPRateLimited as error:
+        messages.warning(request, f'برای درخواست دوباره کمی صبر کنید؛ حدود {error.retry_after} ثانیه دیگر تلاش کنید.')
+    except SMSBackendNotConfigured:
+        messages.error(request, 'الگوی پیامک اختصاصی پذیرش در این محیط تنظیم نشده است.')
+    except SMSDeliveryFailed:
+        messages.error(request, 'ارسال کد انجام نشد. کمی بعد دوباره تلاش کنید.')
+    else:
+        request.session[PREINVOICE_ACCEPTANCE_SESSION_KEY] = str(preinvoice.public_id)
+        messages.success(request, f'کد یک‌بارمصرف به شمارهٔ {preinvoice.mobile[:4]}*****{preinvoice.mobile[-2:]} فرستاده شد.')
+    return redirect(detail_url)
+
+
+@never_cache
+@require_POST
+def accept_preinvoice_quote(request, public_id):
+    preinvoice = get_object_or_404(PreInvoice, public_id=public_id)
+    detail_url = reverse('orders:preinvoice_detail', kwargs={'public_id': public_id})
+    if request.session.get(PREINVOICE_ACCEPTANCE_SESSION_KEY) != str(preinvoice.public_id):
+        messages.warning(request, 'ابتدا برای همین پیش‌فاکتور کد تأیید پیامکی درخواست کنید.')
+        return redirect(detail_url)
+
+    form = AcceptPreInvoiceQuoteForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'کد شش‌رقمی و تأیید آگاهانهٔ پیش‌فاکتور را وارد کنید.')
+        return redirect(detail_url)
+
+    otp_error = None
+    accepted = False
+    with transaction.atomic():
+        preinvoice = PreInvoice.objects.select_for_update().get(pk=preinvoice.pk)
+        if preinvoice.status != PreInvoice.Status.AWAITING_CUSTOMER:
+            messages.warning(request, 'این پیش‌فاکتور دیگر در انتظار پذیرش نیست.')
+            return redirect(detail_url)
+        now = timezone.now()
+        if not preinvoice.quote_valid_until or preinvoice.quote_valid_until <= now:
+            preinvoice.status = PreInvoice.Status.REVIEW
+            preinvoice.admin_note = (preinvoice.admin_note + '\nپذیرش انجام نشد: مهلت پیش‌فاکتور پایان یافته است.').strip()[:5000]
+            invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+            messages.warning(request, 'مهلت پیش‌فاکتور پایان یافته و برای به‌روزرسانی به کارشناس برگشت.')
+            return redirect(detail_url)
+
+        lines = list(preinvoice.items.select_related('variant__product__category'))
+        current, reason = captured_quote_is_current(lines)
+        if not current or preinvoice.quote_valid_until <= timezone.now():
+            preinvoice.status = PreInvoice.Status.REVIEW
+            preinvoice.admin_note = (preinvoice.admin_note + f'\nپذیرش انجام نشد: {reason}').strip()[:5000]
+            invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+            preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+            messages.warning(request, 'قیمت یا موجودی تغییر کرده است؛ درخواست برای صدور پیش‌فاکتور تازه به کارشناس برگشت.')
+            return redirect(detail_url)
+
+        try:
+            challenge = verify_preinvoice_acceptance_code(
+                preinvoice.mobile,
+                preinvoice.public_id,
+                form.cleaned_data['code'],
+            )
+        except OTPExpired:
+            otp_error = 'مهلت کد پایان یافته است؛ کد تازه درخواست کنید.'
+            request.session.pop(PREINVOICE_ACCEPTANCE_SESSION_KEY, None)
+        except OTPInvalid:
+            otp_error = 'کد معتبر نیست یا تعداد تلاش‌های مجاز تمام شده است.'
+        else:
+            current, reason = captured_quote_is_current(lines)
+            if not current or preinvoice.quote_valid_until <= timezone.now():
+                preinvoice.status = PreInvoice.Status.REVIEW
+                preinvoice.admin_note = (preinvoice.admin_note + f'\nپذیرش انجام نشد: {reason or "مهلت پیش‌فاکتور پایان یافته است."}').strip()[:5000]
+                invalidate_preinvoice_acceptance_codes(preinvoice.public_id)
+                preinvoice.save(update_fields=('status', 'admin_note', 'updated_at'))
+                messages.warning(request, 'اعتبار قیمت یا موجودی در زمان تأیید به پایان رسید؛ درخواست برای به‌روزرسانی به کارشناس برگشت.')
+            else:
+                acceptance_time = timezone.now()
+                if challenge.expires_at <= acceptance_time:
+                    otp_error = 'مهلت کد پایان یافته است؛ کد تازه درخواست کنید.'
+                    request.session.pop(PREINVOICE_ACCEPTANCE_SESSION_KEY, None)
+                else:
+                    profile = CustomerProfile.objects.filter(mobile=preinvoice.mobile).first()
+                    preinvoice.customer = profile or preinvoice.customer
+                    preinvoice.customer_accepted_at = acceptance_time
+                    preinvoice.customer_accepted_mobile = preinvoice.mobile
+                    preinvoice.acceptance_otp = challenge
+                    preinvoice.status = PreInvoice.Status.CONFIRMED
+                    preinvoice.save(update_fields=(
+                        'customer', 'customer_accepted_at', 'customer_accepted_mobile',
+                        'acceptance_otp', 'status', 'updated_at',
+                    ))
+                    accepted = True
+
+    if otp_error:
+        messages.error(request, otp_error)
+    elif accepted:
+        request.session.pop(PREINVOICE_ACCEPTANCE_SESSION_KEY, None)
+        messages.success(request, 'پذیرش پیش‌فاکتور ثبت شد. این ثبت سفارش قطعی یا پرداخت نیست؛ کارشناس مرحلهٔ بعد را پیگیری می‌کند.')
+    return redirect(detail_url)

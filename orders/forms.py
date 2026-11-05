@@ -67,3 +67,35 @@ class PreInvoiceForm(forms.Form):
     def clean_delivery_mobile(self):
         value = self.cleaned_data.get('delivery_mobile', '').strip()
         return normalize_iran_mobile(value) if value else ''
+
+
+class AcceptPreInvoiceQuoteForm(forms.Form):
+    code = forms.CharField(
+        label='کد تأیید پیامک‌شده',
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control otp-input',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'placeholder': '------',
+            'dir': 'ltr',
+            'autofocus': True,
+        }),
+    )
+    accept_quote = forms.BooleanField(
+        label='قیمت، موجودی و مقصد را بررسی کرده‌ام و این پیش‌فاکتور را برای ادامهٔ بررسی می‌پذیرم؛ این پذیرش سفارش قطعی یا پرداخت نیست.',
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['accept_quote'].widget.attrs['class'] = 'form-checkbox'
+
+    def clean_code(self):
+        code = self.cleaned_data['code'].translate(
+            str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+        ).strip()
+        if not code.isdigit() or len(code) != 6:
+            raise forms.ValidationError('کد باید دقیقاً ۶ رقم باشد.')
+        return code
