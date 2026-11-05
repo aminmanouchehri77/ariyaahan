@@ -153,6 +153,25 @@ DEFAULT_SMS_BACKEND = (
     else 'accounts.sms.ConsoleSMSBackend'
 )
 SMS_BACKEND = os.getenv('SMS_BACKEND', DEFAULT_SMS_BACKEND).strip()
+if not DEBUG:
+    backend_name = SMS_BACKEND.rsplit('.', 1)[-1]
+    if backend_name == 'ConsoleSMSBackend':
+        raise RuntimeError(
+            'The console SMS backend is development-only. Configure a production SMS backend before startup.'
+        )
+    if backend_name == 'KavenegarVerifyLookupBackend':
+        missing_kavenegar_settings = [
+            name for name, value in (
+                ('KAVENEGAR_API_KEY', KAVENEGAR_API_KEY),
+                ('KAVENEGAR_OTP_TEMPLATE', KAVENEGAR_OTP_TEMPLATE),
+                ('KAVENEGAR_ACCEPT_TEMPLATE', KAVENEGAR_ACCEPT_TEMPLATE),
+            ) if not value
+        ]
+        if missing_kavenegar_settings:
+            raise RuntimeError(
+                'Configure these Kavenegar settings before production startup: '
+                + ', '.join(missing_kavenegar_settings)
+            )
 OTP_EXPIRY_SECONDS = int(os.getenv('OTP_EXPIRY_SECONDS', '300'))
 OTP_RESEND_SECONDS = int(os.getenv('OTP_RESEND_SECONDS', '60'))
 OTP_MAX_SENDS_PER_HOUR = int(os.getenv('OTP_MAX_SENDS_PER_HOUR', '5'))
