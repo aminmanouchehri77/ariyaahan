@@ -3,7 +3,23 @@ from django.urls import reverse
 
 from accounts.models import CustomerNotification
 
-from .models import Inquiry
+from .models import CompanyContactDetails, Inquiry
+
+
+@admin.register(CompanyContactDetails)
+class CompanyContactDetailsAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('اطلاعات عمومی', {'fields': ('public_name', 'phone', 'alternate_phone', 'email')}),
+        ('نشانی و پاسخ‌گویی', {'fields': ('address', 'office_hours', 'map_url')}),
+        ('شبکه‌های اجتماعی', {'fields': ('whatsapp_url', 'telegram_url', 'instagram_url', 'linkedin_url')}),
+    )
+    readonly_fields = ('updated_at',)
+
+    def has_add_permission(self, request):
+        return not CompanyContactDetails.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Inquiry)

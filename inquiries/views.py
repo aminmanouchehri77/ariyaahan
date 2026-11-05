@@ -7,10 +7,11 @@ from django.views.decorators.http import require_http_methods
 
 from accounts.models import CustomerProfile
 from catalog.models import ProductVariant
+from core.seo import json_ld
 from marketplace.models import MarketplaceListing
 
 from .forms import InquiryForm
-from .models import Inquiry
+from .models import CompanyContactDetails, Inquiry
 
 
 def _inquiry_page(request, kind):
@@ -62,12 +63,50 @@ def _inquiry_page(request, kind):
         inquiry.save()
         return redirect('inquiries:status', public_id=inquiry.public_id)
 
+    contact_details = CompanyContactDetails.objects.first() if kind == Inquiry.Kind.CONTACT else None
+    contact_schema = None
+    if contact_details and contact_details.has_public_details:
+        organization = {
+            '@type': 'Organization',
+            'name': contact_details.public_name or 'آهن‌آلات آریا',
+            'url': request.build_absolute_uri('/'),
+        }
+        if contact_details.phone or contact_details.email:
+            point = {'@type': 'ContactPoint', 'contactType': 'customer service'}
+            if contact_details.phone:
+                point['telephone'] = contact_details.phone
+            if contact_details.email:
+                point['email'] = contact_details.email
+            organization['contactPoint'] = [point]
+        if contact_details.address:
+            organization['address'] = {
+                '@type': 'PostalAddress',
+                'streetAddress': contact_details.address,
+            }
+        if contact_details.map_url:
+            organization['hasMap'] = contact_details.map_url
+        social_links = [url for url in (
+            contact_details.whatsapp_url, contact_details.telegram_url,
+            contact_details.instagram_url, contact_details.linkedin_url,
+        ) if url]
+        if social_links:
+            organization['sameAs'] = social_links
+        contact_schema = json_ld({
+            '@context': 'https://schema.org',
+            '@type': 'ContactPage',
+            'name': 'تماس با آهن‌آلات آریا',
+            'url': request.build_absolute_uri(),
+            'mainEntity': organization,
+        })
+
     return render(request, 'inquiries/form.html', {
         'form': form,
         'kind': kind,
         'is_quote': kind == Inquiry.Kind.QUOTE,
         'sent': request.GET.get('sent') == '1',
         'selected_variant': selected_variant,
+        'contact_details': contact_details,
+        'contact_schema': contact_schema,
     })
 
 

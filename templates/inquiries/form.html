@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}{% if is_quote %}درخواست قیمت{% else %}تماس با آریا{% endif %} | آهن‌آلات آریا{% endblock %}
-{% block meta_description %}ثبت درخواست قیمت یا پیام برای پیگیری توسط کارشناسان آهن‌آلات آریا.{% endblock %}
-{% block robots_meta %}noindex, follow{% endblock %}
+{% block meta_description %}{% if is_quote %}ثبت درخواست قیمت و موجودی برای پیگیری توسط کارشناسان آهن‌آلات آریا.{% else %}اطلاعات تماس، نشانی و راه‌های ارتباطی آهن‌آلات آریا و فرم ارسال پیام به کارشناسان شرکت.{% endif %}{% endblock %}
+{% block robots_meta %}{% if is_quote %}noindex, follow{% else %}index, follow{% endif %}{% endblock %}
+{% block structured_data %}{% if contact_schema %}<script type="application/ld+json">{{ contact_schema|safe }}</script>{% endif %}{% endblock %}
 {% block content %}
 <section class="page-hero"><div class="container">
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>{% if is_quote %}درخواست قیمت{% else %}تماس با ما{% endif %}</span></nav>
@@ -11,6 +12,30 @@
 </div></section>
 <section class="section content-section">
   <div class="container inquiry-layout">
+    {% if not is_quote and contact_details.has_public_details %}
+      <section class="company-contact-card" aria-label="راه‌های ارتباطی شرکت">
+        <div class="company-contact-card__intro">
+          <p class="eyebrow eyebrow--dark">ارتباط مستقیم</p>
+          <h2>{{ contact_details.public_name|default:'راه‌های ارتباط با شرکت' }}</h2>
+        </div>
+        <div class="company-contact-card__items">
+          {% if contact_details.phone %}<div><span>تلفن</span><a href="tel:{{ contact_details.phone_uri }}" dir="ltr">{{ contact_details.phone }}</a></div>{% endif %}
+          {% if contact_details.alternate_phone %}<div><span>تلفن دوم</span><a href="tel:{{ contact_details.alternate_phone_uri }}" dir="ltr">{{ contact_details.alternate_phone }}</a></div>{% endif %}
+          {% if contact_details.email %}<div><span>رایانامه</span><a href="mailto:{{ contact_details.email }}" dir="ltr">{{ contact_details.email }}</a></div>{% endif %}
+          {% if contact_details.office_hours %}<div><span>ساعات پاسخ‌گویی</span><strong>{{ contact_details.office_hours }}</strong></div>{% endif %}
+          {% if contact_details.address %}<div class="company-contact-card__address"><span>نشانی</span><p>{{ contact_details.address|linebreaksbr }}</p></div>{% endif %}
+        </div>
+        {% if contact_details.map_url or contact_details.whatsapp_url or contact_details.telegram_url or contact_details.instagram_url or contact_details.linkedin_url %}
+          <nav class="company-contact-card__links" aria-label="نقشه و شبکه‌های اجتماعی">
+            {% if contact_details.map_url %}<a href="{{ contact_details.map_url }}" target="_blank" rel="noopener noreferrer">نمایش روی نقشه</a>{% endif %}
+            {% if contact_details.whatsapp_url %}<a href="{{ contact_details.whatsapp_url }}" target="_blank" rel="noopener noreferrer">واتس‌اپ</a>{% endif %}
+            {% if contact_details.telegram_url %}<a href="{{ contact_details.telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>{% endif %}
+            {% if contact_details.instagram_url %}<a href="{{ contact_details.instagram_url }}" target="_blank" rel="noopener noreferrer">اینستاگرام</a>{% endif %}
+            {% if contact_details.linkedin_url %}<a href="{{ contact_details.linkedin_url }}" target="_blank" rel="noopener noreferrer">لینکدین</a>{% endif %}
+          </nav>
+        {% endif %}
+      </section>
+    {% endif %}
     {% if sent %}
       <div class="inquiry-success" role="status">
         <span class="inquiry-success__mark" aria-hidden="true">✓</span>

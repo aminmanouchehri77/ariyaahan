@@ -278,6 +278,17 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .description-section h2 { color: var(--navy); font-size: 19px; }
 .prose { color: #516173; font-size: 12px; }
 .inquiry-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(230px, .7fr); align-items: start; gap: 24px; }
+.company-contact-card { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: 20px; padding: 23px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+.company-contact-card__intro h2 { margin: 8px 0; color: var(--navy); font-size: 18px; }
+.company-contact-card__items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 20px; }
+.company-contact-card__items > div { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.company-contact-card__items span { color: #667789; font-size: 11px; }
+.company-contact-card__items a, .company-contact-card__items strong { color: var(--navy); font-size: 13px; overflow-wrap: anywhere; }
+.company-contact-card__address { grid-column: 1 / -1; }
+.company-contact-card__address p { margin: 0; color: var(--navy); font-size: 13px; line-height: 1.9; }
+.company-contact-card__links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 9px; padding-top: 15px; border-top: 1px solid var(--line); }
+.company-contact-card__links a { display: inline-flex; min-height: 40px; align-items: center; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); font-size: 12px; text-decoration: none; }
+.company-contact-card__links a:hover { border-color: var(--navy); }
 .inquiry-form, .inquiry-aside, .inquiry-success { padding: 25px; border: 1px solid var(--line); border-radius: 13px; background: white; }
 .inquiry-form { display: grid; gap: 17px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 15px; }
@@ -344,6 +355,7 @@ textarea.form-control { min-height: 112px; resize: vertical; line-height: 1.9; }
   .market-table th, .market-table td { padding-inline: 11px; }
   .product-layout { grid-template-columns: minmax(0,1fr); }
   .inquiry-layout { grid-template-columns: 1fr; }
+  .company-contact-card { grid-template-columns: 1fr; }
   .inquiry-aside { position: static; }
   .product-aside { position: static; }
   .footer-main { grid-template-columns: 1.2fr .8fr; gap: 34px; }
@@ -431,6 +443,8 @@ textarea.form-control { min-height: 112px; resize: vertical; line-height: 1.9; }
   .empty-state--inline { align-items: flex-start; }
   .product-layout { gap: 18px; }
   .inquiry-form, .inquiry-aside, .inquiry-success { padding: 17px; }
+  .company-contact-card { padding: 17px; }
+  .company-contact-card__items { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; gap: 12px; }
   .variant-card { padding: 15px; }
   .variant-card__heading { flex-wrap: wrap; }

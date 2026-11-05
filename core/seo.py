@@ -1,6 +1,10 @@
 import json
 
 
+def json_ld(data):
+    return json.dumps(data, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+
+
 def breadcrumb_schema(request, items):
     elements = []
     for position, (name, url) in enumerate(items, start=1):
@@ -9,4 +13,4 @@ def breadcrumb_schema(request, items):
             element['item'] = request.build_absolute_uri(url)
         elements.append(element)
     data = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': elements}
-    return json.dumps(data, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+    return json_ld(data)

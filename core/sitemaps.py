@@ -15,6 +15,7 @@ class StaticPageSitemap(Sitemap):
             'catalog:category_list',
             'marketplace:sell',
             'marketplace:buy',
+            'inquiries:contact',
             'core:weight_calculator',
             'core:shipping_calculator',
             'content:article_list',

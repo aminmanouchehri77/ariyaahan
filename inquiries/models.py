@@ -6,6 +6,54 @@ from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 
 
+class CompanyContactDetails(models.Model):
+    singleton_key = models.CharField('شناسهٔ تنظیمات', max_length=20, default='main', unique=True, editable=False)
+    public_name = models.CharField('نام نمایشی شرکت', max_length=160, blank=True)
+    phone = models.CharField(
+        'تلفن اصلی', max_length=30, blank=True,
+        validators=[RegexValidator(r'^\+?[0-9 ()-]{7,24}$', 'شمارهٔ تلفن را با ارقام و نشانه‌های مجاز وارد کنید.')],
+    )
+    alternate_phone = models.CharField(
+        'تلفن دوم', max_length=30, blank=True,
+        validators=[RegexValidator(r'^\+?[0-9 ()-]{7,24}$', 'شمارهٔ تلفن را با ارقام و نشانه‌های مجاز وارد کنید.')],
+    )
+    email = models.EmailField('رایانامهٔ عمومی', blank=True)
+    address = models.TextField('نشانی رسمی', blank=True)
+    office_hours = models.CharField('ساعات پاسخ‌گویی', max_length=180, blank=True)
+    map_url = models.URLField('پیوند نقشه', max_length=500, blank=True)
+    whatsapp_url = models.URLField('پیوند واتس‌اپ', max_length=500, blank=True)
+    telegram_url = models.URLField('پیوند تلگرام', max_length=500, blank=True)
+    instagram_url = models.URLField('پیوند اینستاگرام', max_length=500, blank=True)
+    linkedin_url = models.URLField('پیوند لینکدین', max_length=500, blank=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
+
+    class Meta:
+        verbose_name = 'اطلاعات تماس شرکت'
+        verbose_name_plural = 'اطلاعات تماس شرکت'
+
+    def __str__(self):
+        return self.public_name or 'اطلاعات تماس آهن‌آلات آریا'
+
+    @property
+    def has_public_details(self):
+        return any((
+            self.phone, self.alternate_phone, self.email, self.address, self.office_hours,
+            self.map_url, self.whatsapp_url, self.telegram_url, self.instagram_url, self.linkedin_url,
+        ))
+
+    @property
+    def phone_uri(self):
+        return ''.join(character for character in self.phone if character.isdigit() or character == '+')
+
+    @property
+    def alternate_phone_uri(self):
+        return ''.join(character for character in self.alternate_phone if character.isdigit() or character == '+')
+
+    def save(self, *args, **kwargs):
+        self.singleton_key = 'main'
+        super().save(*args, **kwargs)
+
+
 class Inquiry(models.Model):
     class Kind(models.TextChoices):
         QUOTE = 'quote', 'درخواست قیمت'

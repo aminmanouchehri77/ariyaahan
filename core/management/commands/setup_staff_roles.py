@@ -18,6 +18,7 @@ ROLE_MODELS = {
             'companypage', 'article', 'articletag', 'mediaitem', 'faq', 'marketnews',
             'productquestion', 'productreview', 'articlecomment',
         ),
+        'inquiries': ('companycontactdetails',),
     },
     'پشتیبانی مشتری': {
         'inquiries': ('inquiry',),
