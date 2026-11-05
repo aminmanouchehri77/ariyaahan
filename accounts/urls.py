@@ -21,6 +21,7 @@ urlpatterns = [
     path('price-alerts/<int:alert_id>/delete/', views.price_alert_delete, name='price_alert_delete'),
     path('notifications/', views.notifications_view, name='notifications'),
     path('notifications/read/', views.notifications_read, name='notifications_read'),
+    path('notifications/<int:notification_id>/open/', views.notification_open, name='notification_open'),
     path('notifications/<int:notification_id>/read/', views.notification_read, name='notification_read'),
     path('push/subscribe/', views.push_subscribe, name='push_subscribe'),
     path('push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),

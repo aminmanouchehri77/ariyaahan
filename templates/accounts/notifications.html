@@ -37,8 +37,12 @@
             <p>{{ notification.body }}</p>
             <small>{{ notification.get_kind_display }} · {{ notification.created_at|jalali_datetime }}</small>
             <div class="account-links">
-              {% if notification.target_url %}<a class="text-link" href="{{ notification.target_url }}">مشاهدهٔ مورد مرتبط</a>{% endif %}
-              {% if not notification.is_read %}
+              {% if notification.target_url %}
+                <form method="post" action="{% url 'accounts:notification_open' notification.id %}">
+                  {% csrf_token %}
+                  <button class="text-link" type="submit">مشاهدهٔ مورد مرتبط</button>
+                </form>
+              {% elif not notification.is_read %}
                 <form method="post" action="{% url 'accounts:notification_read' notification.id %}">
                   {% csrf_token %}
                   <input type="hidden" name="return_to" value="{{ request.get_full_path }}">

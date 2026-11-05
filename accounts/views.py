@@ -482,6 +482,26 @@ def notification_read(request, notification_id):
     return _notification_return_redirect(request)
 
 
+@login_required
+@never_cache
+@require_POST
+def notification_open(request, notification_id):
+    profile = get_object_or_404(CustomerProfile, user=request.user)
+    notification = get_object_or_404(CustomerNotification, pk=notification_id, profile=profile)
+    target_url = notification.target_url
+    if not target_url or not url_has_allowed_host_and_scheme(
+        target_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        messages.error(request, 'نشانی این اعلان معتبر نیست.')
+        return redirect('accounts:notifications')
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=('is_read',))
+    return redirect(target_url)
+
+
 def _notification_return_redirect(request):
     candidate = request.POST.get('return_to', '')
     if candidate and url_has_allowed_host_and_scheme(
