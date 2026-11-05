@@ -1,4 +1,11 @@
 from catalog.models import Category
+from inquiries.models import CompanyContactDetails
+
+
+def get_company_contact_details(request):
+    if not hasattr(request, '_company_contact_details'):
+        request._company_contact_details = CompanyContactDetails.objects.first()
+    return request._company_contact_details
 
 
 def navigation_categories(request):
@@ -7,4 +14,5 @@ def navigation_categories(request):
             is_active=True,
             parent__isnull=True,
         ).order_by('sort_order', 'name')[:8],
+        'company_contact_details': get_company_contact_details(request),
     }

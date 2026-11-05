@@ -42,9 +42,9 @@
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main-content">رفتن به محتوای اصلی</a>
   <div class="topline">
-    <div class="container topline__inner">
+    <div class="container topline__inner{% if company_contact_details.phone %} topline__inner--contact{% endif %}">
       <span class="topline__message"><span class="status-dot"></span> قیمت هر کالا همراه با واحد و زمان ثبت نمایش داده می‌شود</span>
-      <span class="topline__note">مرجع اطلاعات محصولات فولادی</span>
+      {% if company_contact_details.phone %}<a class="topline__contact" href="tel:{{ company_contact_details.phone_uri }}" dir="ltr"><span dir="rtl">تماس با آریا</span> {{ company_contact_details.phone }}</a>{% else %}<span class="topline__note">مرجع اطلاعات محصولات فولادی</span>{% endif %}
     </div>
   </div>
 
@@ -113,6 +113,20 @@
           <span class="brand__text"><strong>آهن‌آلات آریا</strong><small>اطلاعات روشن برای انتخاب مطمئن</small></span>
         </a>
         <p>کاتالوگ محصولات فولادی با مشخصات فنی، قیمت زمان‌دار و مسیر استعلام روشن.</p>
+        {% if company_contact_details.has_public_details %}
+          <div class="footer-contact" aria-label="اطلاعات تماس شرکت">
+            {% if company_contact_details.phone %}<a href="tel:{{ company_contact_details.phone_uri }}" dir="ltr">{{ company_contact_details.phone }}</a>{% endif %}
+            {% if company_contact_details.alternate_phone %}<a href="tel:{{ company_contact_details.alternate_phone_uri }}" dir="ltr">{{ company_contact_details.alternate_phone }}</a>{% endif %}
+            {% if company_contact_details.email %}<a href="mailto:{{ company_contact_details.email }}" dir="ltr">{{ company_contact_details.email }}</a>{% endif %}
+            {% if company_contact_details.office_hours %}<span>ساعات پاسخ‌گویی: {{ company_contact_details.office_hours }}</span>{% endif %}
+            {% if company_contact_details.address %}<span>{{ company_contact_details.address|linebreaksbr }}</span>{% endif %}
+            {% if company_contact_details.map_url %}<a href="{{ company_contact_details.map_url }}" target="_blank" rel="noopener noreferrer">نشانی روی نقشه</a>{% endif %}
+            {% if company_contact_details.whatsapp_url %}<a href="{{ company_contact_details.whatsapp_url }}" target="_blank" rel="noopener noreferrer">واتس‌اپ</a>{% endif %}
+            {% if company_contact_details.telegram_url %}<a href="{{ company_contact_details.telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>{% endif %}
+            {% if company_contact_details.instagram_url %}<a href="{{ company_contact_details.instagram_url }}" target="_blank" rel="noopener noreferrer">اینستاگرام</a>{% endif %}
+            {% if company_contact_details.linkedin_url %}<a href="{{ company_contact_details.linkedin_url }}" target="_blank" rel="noopener noreferrer">لینکدین</a>{% endif %}
+          </div>
+        {% endif %}
       </div>
       <div class="footer-links">
         <h2>دسترسی سریع</h2>

@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 
 from accounts.models import CustomerProfile
 from catalog.models import ProductVariant
+from core.context_processors import get_company_contact_details
 from core.seo import json_ld
 from marketplace.models import MarketplaceListing
 
@@ -63,7 +64,7 @@ def _inquiry_page(request, kind):
         inquiry.save()
         return redirect('inquiries:status', public_id=inquiry.public_id)
 
-    contact_details = CompanyContactDetails.objects.first() if kind == Inquiry.Kind.CONTACT else None
+    contact_details = get_company_contact_details(request) if kind == Inquiry.Kind.CONTACT else None
     contact_schema = None
     if contact_details and contact_details.has_public_details:
         organization = {
