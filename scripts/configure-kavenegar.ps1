@@ -2,6 +2,7 @@
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $localConfigPath = Join-Path $projectRoot '.local-sms.ps1'
+$envPath = Join-Path $projectRoot '.env'
 
 if (Test-Path -LiteralPath $localConfigPath) {
     $overwrite = Read-Host 'تنظیم کاوه‌نگار محلی موجود است. جایگزین شود؟ (y/N)'
@@ -41,6 +42,29 @@ if ($template -notmatch '^[A-Za-z0-9-]+$') {
     throw 'Template name must contain only English letters, digits, or hyphens.'
 }
 
+$acceptanceTemplate = (Read-Host 'نام دقیق الگوی جداگانهٔ پذیرش پیش‌فاکتور در کاوه‌نگار').Trim()
+if ($acceptanceTemplate -notmatch '^[A-Za-z0-9-]+$') {
+    $apiKey = $null
+    throw 'Acceptance template name must contain only English letters, digits, or hyphens.'
+}
+if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) {
+    $apiKey = $null
+    throw '.env پیدا نشد؛ ابتدا تنظیمات محلی پروژه را بسازید.'
+}
+
+$envLines = [System.Collections.Generic.List[string]]::new()
+$envLines.AddRange([System.IO.File]::ReadAllLines($envPath, [System.Text.Encoding]::UTF8))
+$acceptanceSettingFound = $false
+for ($index = 0; $index -lt $envLines.Count; $index++) {
+    if ($envLines[$index] -match '^\s*KAVENEGAR_ACCEPT_TEMPLATE\s*=') {
+        $envLines[$index] = "KAVENEGAR_ACCEPT_TEMPLATE=$acceptanceTemplate"
+        $acceptanceSettingFound = $true
+    }
+}
+if (-not $acceptanceSettingFound) {
+    $envLines.Add("KAVENEGAR_ACCEPT_TEMPLATE=$acceptanceTemplate")
+}
+
 try {
     $escapedApiKey = $apiKey.Replace("'", "''")
     $localSettings = "`$env:KAVENEGAR_API_KEY = '$escapedApiKey'`r`n" +
@@ -58,12 +82,16 @@ try {
     $acl.SetAccessRule($accessRule)
     Set-Acl -LiteralPath $localConfigPath -AclObject $acl
     [System.IO.File]::WriteAllText($localConfigPath, $localSettings, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllLines($envPath, $envLines, [System.Text.UTF8Encoding]::new($false))
 
     Write-Host 'تنظیم محلی کاوه‌نگار ذخیره شد؛ مقدار کلید نمایش داده نمی‌شود.'
+    Write-Host 'الگوی ورود در فایل محلی محدودشده و الگوی پذیرش در .env ذخیره شد.'
     Write-Host 'سرور را با .\scripts\run-local.ps1 دوباره اجرا کنید تا تنظیمات بارگذاری شوند.'
 }
 finally {
     $apiKey = $null
     $escapedApiKey = $null
     $localSettings = $null
+    $acceptanceTemplate = $null
+    $envLines = $null
 }
