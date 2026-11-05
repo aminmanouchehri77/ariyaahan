@@ -216,13 +216,43 @@ class StockObservation(models.Model):
     def __str__(self):
         return f'{self.variant} — {self.location} — {self.quantity} {self.get_unit_display()}'
 
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = type(self).objects.filter(pk=self.pk).values(
+                'variant_id', 'location_id', 'quantity', 'unit', 'is_available',
+                'source', 'observed_at', 'valid_until',
+            ).first()
+            if old and any(getattr(self, key) != value for key, value in old.items()):
+                raise ValidationError('مشخصات یک ثبت موجودی پس از ایجاد قابل ویرایش نیست؛ ثبت تازه بسازید.')
+        if self.status == self.Status.APPROVED and (not self.approved_at or not self.approved_by_id):
+            raise ValidationError('برای تأیید موجودی باید مدیر تأییدکننده و زمان تأیید ثبت شود.')
+        super().save(*args, **kwargs)
+
+    @transaction.atomic
     def approve(self, actor):
-        if self.status == self.Status.REJECTED:
+        observation = type(self).objects.select_for_update().get(pk=self.pk)
+        if observation.status == self.Status.REJECTED:
             raise ValidationError('ثبت موجودی ردشده را نمی‌توان تأیید کرد؛ ثبت تازه ایجاد کنید.')
-        self.status = self.Status.APPROVED
+        observation.status = self.Status.APPROVED
+        observation.approved_by = actor
+        observation.approved_at = timezone.now()
+        observation.save(update_fields=('status', 'approved_by', 'approved_at'))
+        self.status = observation.status
         self.approved_by = actor
-        self.approved_at = timezone.now()
-        self.save(update_fields=('status', 'approved_by', 'approved_at'))
+        self.approved_at = observation.approved_at
+
+    @transaction.atomic
+    def reject(self, actor):
+        observation = type(self).objects.select_for_update().get(pk=self.pk)
+        if observation.status != self.Status.PENDING:
+            raise ValidationError('فقط ثبت موجودی در انتظار تأیید قابل رد است.')
+        observation.status = self.Status.REJECTED
+        observation.approved_by = actor
+        observation.approved_at = timezone.now()
+        observation.save(update_fields=('status', 'approved_by', 'approved_at'))
+        self.status = observation.status
+        self.approved_by = actor
+        self.approved_at = observation.approved_at
 
 
 class ShippingRate(models.Model):

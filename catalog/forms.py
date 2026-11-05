@@ -27,8 +27,8 @@ class CategoryFilterForm(forms.Form):
     min_price = forms.DecimalField(label='حداقل قیمت', min_value=Decimal('1'), max_digits=18, decimal_places=0, required=False)
     max_price = forms.DecimalField(label='حداکثر قیمت', min_value=Decimal('1'), max_digits=18, decimal_places=0, required=False)
     availability = forms.ChoiceField(
-        label='موجودی', required=False,
-        choices=(('', 'هر وضعیت'), ('available', 'فقط موجود'), ('unavailable', 'ناموجود')),
+        label='موجودی تأییدشده', required=False,
+        choices=(('', 'هر وضعیت'), ('available', 'موجودی تأییدشدهٔ موجود'), ('unavailable', 'موجودی تأییدشدهٔ ناموجود')),
     )
     ordering = forms.ChoiceField(
         label='مرتب‌سازی', required=False,

@@ -87,14 +87,35 @@ def approve_stock(modeladmin, request, queryset):
     modeladmin.message_user(request, f'{changed} ثبت موجودی تأیید شد.')
 
 
+@admin.action(description='رد موجودی‌های انتخاب‌شده')
+def reject_stock(modeladmin, request, queryset):
+    changed = 0
+    for observation in queryset.filter(status=StockObservation.Status.PENDING):
+        observation.reject(request.user)
+        changed += 1
+    modeladmin.message_user(request, f'{changed} ثبت موجودی رد شد.')
+
+
 @admin.register(StockObservation)
 class StockObservationAdmin(admin.ModelAdmin):
     list_display = ('variant', 'location', 'quantity', 'unit', 'is_available', 'status', 'observed_at', 'valid_until')
     list_filter = ('status', 'is_available', 'location', 'observed_at')
     search_fields = ('variant__product__name', 'variant__name', 'location__name', 'source')
     readonly_fields = ('created_at', 'approved_by', 'approved_at', 'status')
-    actions = (approve_stock,)
+    actions = (approve_stock, reject_stock)
     date_hierarchy = 'observed_at'
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        if obj:
+            fields.extend((
+                'variant', 'location', 'quantity', 'unit', 'is_available',
+                'source', 'observed_at', 'valid_until',
+            ))
+        return tuple(fields)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ShippingRate)

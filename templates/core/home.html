@@ -77,7 +77,7 @@
     {% if featured_variants %}
     <div class="market-table-wrap">
       <table class="market-table">
-        <thead><tr><th scope="col">محصول</th><th scope="col">کارخانه / مشخصات</th><th scope="col">آخرین قیمت</th><th scope="col">آخرین ثبت</th><th scope="col">وضعیت</th><th scope="col"><span class="visually-hidden">جزئیات</span></th></tr></thead>
+        <thead><tr><th scope="col">محصول</th><th scope="col">کارخانه / مشخصات</th><th scope="col">آخرین قیمت</th><th scope="col">آخرین ثبت قیمت</th><th scope="col">قیمت و موجودی</th><th scope="col"><span class="visually-hidden">جزئیات</span></th></tr></thead>
         <tbody>
         {% for variant in featured_variants %}
           <tr>
@@ -85,7 +85,7 @@
             <td data-label="کارخانه / مشخصات">{{ variant.manufacturer|default:'—' }}{% if variant.size %}<small class="table-sub">سایز {{ variant.size }}{% if variant.grade %} · {{ variant.grade }}{% endif %}</small>{% endif %}</td>
             <td class="price-cell" data-label="آخرین قیمت">{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}استعلام{% endif %}<small>{{ variant.latest_unit_label|default:variant.get_unit_display }}</small></td>
             <td data-label="آخرین ثبت">{% if variant.latest_observed_at %}<time datetime="{{ variant.latest_observed_at|date:'c' }}">{{ variant.latest_observed_at|jalali_datetime }}</time>{% else %}—{% endif %}{% if variant.latest_location %}<small class="table-sub">تحویل: {{ variant.latest_location }}</small>{% endif %}</td>
-            <td data-label="وضعیت">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">موجود</span>{% else %}<span class="tag tag--neutral">ناموجود</span>{% endif %}</td>
+            <td data-label="قیمت و موجودی">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">قیمت قابل استعلام</span>{% else %}<span class="tag tag--neutral">قیمت ناموجود</span>{% endif %}<small class="table-sub">موجودی انبار: {{ variant.stock_status }}</small>{% if variant.latest_stock_observation_id %}<small class="table-sub">{{ variant.latest_stock_quantity|fa_digits }} {{ variant.latest_stock_unit_label }}{% if variant.latest_stock_location %} · {{ variant.latest_stock_location }}{% endif %}</small><small class="table-sub">ثبت موجودی: {{ variant.latest_stock_observed_at|jalali_datetime }}{% if variant.latest_stock_source %} · {{ variant.latest_stock_source }}{% endif %}</small><small class="table-sub">{% if variant.latest_stock_valid_until %}اعتبار تا {{ variant.latest_stock_valid_until|jalali_datetime }}{% elif variant.stock_validity_unknown %}اعتبار نامشخص{% endif %}{% if variant.stock_expired %} · منقضی{% endif %}</small>{% endif %}</td>
             <td data-label="جزئیات"><a class="table-action" href="{{ variant.product.get_absolute_url }}">جزئیات <span aria-hidden="true">←</span></a></td>
           </tr>
         {% endfor %}

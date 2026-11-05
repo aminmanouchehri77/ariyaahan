@@ -14,7 +14,7 @@ from django.views.decorators.http import require_GET
 
 from catalog.models import Category, Product, ProductVariant
 from content.models import MarketNews
-from pricing.selectors import mark_price_state, with_latest_price
+from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 from pricing.models import ShippingRate
 from .models import RedirectRule
 
@@ -29,18 +29,18 @@ def home(request):
         product_count=Count('products', filter=Q(products__is_active=True)),
     ).order_by('sort_order', 'name')
 
-    variants = with_latest_price(
+    variants = latest_stock_observations(with_latest_price(
         ProductVariant.objects.filter(
             is_active=True,
             product__is_active=True,
             product__category__is_active=True,
         ).select_related('product', 'product__category', 'manufacturer')
-    ).order_by(F('latest_observed_at').desc(nulls_last=True), 'product__name')[:6]
+    )).order_by(F('latest_observed_at').desc(nulls_last=True), 'product__name')[:6]
     latest_market_news = MarketNews.objects.select_related('variant__product').all()[:3]
 
     return render(request, 'core/home.html', {
         'categories': categories,
-        'featured_variants': mark_price_state(list(variants)),
+        'featured_variants': mark_stock_state(mark_price_state(list(variants))),
         'latest_market_news': latest_market_news,
     })
 

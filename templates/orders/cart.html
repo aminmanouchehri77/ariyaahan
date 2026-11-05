@@ -20,6 +20,7 @@
               <small>{% if variant.size %}سایز {{ variant.size }}{% endif %}{% if variant.grade %} · {{ variant.grade }}{% endif %}</small>
             </div>
             <span class="tag {% if line.price_is_usable %}tag--available{% elif variant.price_expired or variant.price_validity_unknown %}tag--stale{% else %}tag--neutral{% endif %}">{{ line.price_state }}</span>
+            <small class="table-sub">وضعیت موجودی انبار: {{ variant.stock_status }}{% if variant.latest_stock_observation_id %} · {{ variant.latest_stock_quantity|fa_digits }} {{ variant.latest_stock_unit_label }}{% if variant.latest_stock_location %} · {{ variant.latest_stock_location }}{% endif %} · ثبت {{ variant.latest_stock_observed_at|jalali_datetime }}{% if variant.latest_stock_source %} · {{ variant.latest_stock_source }}{% endif %}{% if variant.latest_stock_valid_until %} · اعتبار تا {{ variant.latest_stock_valid_until|jalali_datetime }}{% endif %}{% if variant.stock_expired %} · منقضی{% endif %}{% endif %}</small>
           </div>
           <div class="cart-card__price">
             <span>آخرین مبلغ ثبت‌شده</span>

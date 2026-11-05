@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from catalog.models import ProductVariant
 from pricing.models import PriceObservation
-from pricing.selectors import mark_price_state, with_latest_price
+from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 
 from .cart import Cart
 from .models import Order, OrderItem, PreInvoice
@@ -51,14 +51,14 @@ def build_cart_context(request):
     cart = Cart(request)
     entries = list(cart.items.items())
     variant_ids = [int(variant_id) for variant_id, _ in entries]
-    variants = mark_price_state(list(with_latest_price(
+    variants = mark_stock_state(mark_price_state(list(latest_stock_observations(with_latest_price(
         ProductVariant.objects.filter(
             pk__in=variant_ids,
             is_active=True,
             product__is_active=True,
             product__category__is_active=True,
         ).select_related('product', 'manufacturer')
-    )))
+    )))))
     by_id = {str(variant.pk): variant for variant in variants}
     totals = defaultdict(lambda: Decimal('0'))
     lines = []

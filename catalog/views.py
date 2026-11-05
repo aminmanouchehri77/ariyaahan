@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Max, Min
+from django.db.models import Avg, Count, F, Max, Min, Q
 from django.db.models.functions import TruncDate, TruncMonth
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,7 +15,7 @@ from content.forms import ProductQuestionForm, ProductReviewForm
 from content.models import Article, ProductQuestion, ProductReview
 from core.seo import breadcrumb_schema
 from pricing.models import PriceObservation
-from pricing.selectors import mark_price_state, with_latest_price
+from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 
 from .forms import CategoryFilterForm
 from .models import Category, Product, ProductVariant
@@ -45,7 +45,7 @@ def category_detail(request, slug):
 
     filters = CategoryFilterForm(request.GET, category=category)
     filters_valid = filters.is_valid()
-    variants = with_latest_price(variants)
+    variants = latest_stock_observations(with_latest_price(variants))
     if filters_valid:
         data = filters.cleaned_data
         if data['size']:
@@ -73,9 +73,17 @@ def category_detail(request, slug):
         if data['max_price'] is not None:
             variants = variants.filter(latest_amount__lte=data['max_price'])
         if data['availability'] == 'available':
-            variants = variants.filter(latest_available=True)
+            variants = variants.filter(
+                latest_stock_available=True,
+                latest_stock_quantity__gt=0,
+                latest_stock_valid_until__gt=timezone.now(),
+            )
         elif data['availability'] == 'unavailable':
-            variants = variants.filter(latest_available=False)
+            current_unavailable_stock = Q(
+                latest_stock_observation_id__isnull=False,
+                latest_stock_valid_until__gt=timezone.now(),
+            ) & (Q(latest_stock_available=False) | Q(latest_stock_quantity__lte=0))
+            variants = variants.filter(current_unavailable_stock)
         ordering = data['ordering'] or 'recent'
     else:
         ordering = 'recent'
@@ -89,7 +97,7 @@ def category_detail(request, slug):
 
     has_variants = variants.exists()
     page = Paginator(variants, 24).get_page(request.GET.get('page'))
-    page.object_list = mark_price_state(list(page.object_list))
+    page.object_list = mark_stock_state(mark_price_state(list(page.object_list)))
     query_without_page = request.GET.copy()
     query_without_page.pop('page', None)
     has_active_filters = any(value for key, value in query_without_page.items() if key in filters.fields)
@@ -146,10 +154,10 @@ def product_detail(request, slug):
         is_active=True,
         category__is_active=True,
     )
-    variants = with_latest_price(
+    variants = latest_stock_observations(with_latest_price(
         product.variants.filter(is_active=True).select_related('manufacturer')
-    ).order_by('sort_order', 'name')
-    variants = mark_price_state(list(variants))
+    )).order_by('sort_order', 'name')
+    variants = mark_stock_state(mark_price_state(list(variants)))
     customer_profile = CustomerProfile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
     questions = ProductQuestion.objects.filter(
         product=product,
@@ -188,6 +196,11 @@ def product_detail(request, slug):
     offers = []
     now = timezone.now()
     for variant in variants:
+        if variant.latest_stock_observation_id and (
+            variant.stock_expired or variant.stock_validity_unknown
+            or not variant.latest_stock_available or variant.latest_stock_quantity <= 0
+        ):
+            continue
         if (
             variant.latest_amount is None
             or not variant.latest_available
@@ -247,15 +260,15 @@ def product_detail(request, slug):
 @require_GET
 def compare(request):
     variant_ids = get_variant_ids(request)
-    variants = with_latest_price(
+    variants = latest_stock_observations(with_latest_price(
         ProductVariant.objects.filter(
             pk__in=variant_ids,
             is_active=True,
             product__is_active=True,
             product__category__is_active=True,
         ).select_related('product', 'product__category', 'manufacturer')
-    )
-    by_id = {variant.pk: variant for variant in mark_price_state(list(variants))}
+    ))
+    by_id = {variant.pk: variant for variant in mark_stock_state(mark_price_state(list(variants)))}
     ordered = [by_id[value] for value in variant_ids if value in by_id]
     return render(request, 'catalog/compare.html', {
         'variants': ordered,
