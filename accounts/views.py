@@ -27,7 +27,7 @@ from .forms import (
     OTPVerificationForm,
     PriceAlertForm,
 )
-from .models import CustomerAddress, CustomerProfile, PriceAlert, PushSubscription
+from .models import CustomerAddress, CustomerNotification, CustomerProfile, PriceAlert, PushSubscription
 from .services import (
     AccountInactive,
     OTPExpired,
@@ -439,6 +439,57 @@ def notifications_read(request):
     if profile:
         profile.notifications.filter(is_read=False).update(is_read=True)
     messages.success(request, 'اعلان‌ها به‌عنوان خوانده‌شده ثبت شدند.')
+    return _notification_return_redirect(request)
+
+
+@login_required
+@never_cache
+def notifications_view(request):
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    status_filter = 'unread' if request.GET.get('status') == 'unread' else 'all'
+    notifications = profile.notifications.all() if profile else CustomerNotification.objects.none()
+    if status_filter == 'unread':
+        notifications = notifications.filter(is_read=False)
+    page_obj = Paginator(notifications, 20).get_page(request.GET.get('page'))
+
+    def page_url(page_number):
+        query = request.GET.copy()
+        query.pop('page', None)
+        if page_number and page_number > 1:
+            query['page'] = page_number
+        return f'?{query.urlencode()}' if query else request.path
+
+    return render(request, 'accounts/notifications.html', {
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'unread_count': profile.notifications.filter(is_read=False).count() if profile else 0,
+        'previous_url': page_url(page_obj.previous_page_number() if page_obj.has_previous() else None),
+        'next_url': page_url(page_obj.next_page_number() if page_obj.has_next() else None),
+    })
+
+
+@login_required
+@never_cache
+@require_POST
+def notification_read(request, notification_id):
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if profile:
+        notification = get_object_or_404(CustomerNotification, pk=notification_id, profile=profile)
+        if not notification.is_read:
+            notification.is_read = True
+            notification.save(update_fields=('is_read',))
+    messages.success(request, 'اعلان خوانده‌شده ثبت شد.')
+    return _notification_return_redirect(request)
+
+
+def _notification_return_redirect(request):
+    candidate = request.POST.get('return_to', '')
+    if candidate and url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(candidate)
     return redirect('accounts:profile')
 
 

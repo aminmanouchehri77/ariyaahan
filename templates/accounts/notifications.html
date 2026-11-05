@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}اعلان‌های حساب | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}اعلان‌های مربوط به سفارش‌ها، درخواست‌ها و هشدارهای قیمت حساب مشتری.{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه">
+      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
+      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
+      <span>اعلان‌ها</span>
+    </nav>
+    <p class="eyebrow eyebrow--dark">صندوق حساب مشتری</p>
+    <h1>اعلان‌های شما</h1>
+    <p>تغییر وضعیت سفارش‌ها، درخواست‌ها و هشدارهای قیمت را اینجا دنبال کنید.</p>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container narrow-container">
+    <div class="account-links" aria-label="فیلتر اعلان‌ها">
+      <a class="button {% if status_filter == 'all' %}button--navy{% else %}button--outline{% endif %}" href="{% url 'accounts:notifications' %}">همه</a>
+      <a class="button {% if status_filter == 'unread' %}button--navy{% else %}button--outline{% endif %}" href="{% url 'accounts:notifications' %}?status=unread">خوانده‌نشده‌ها ({{ unread_count|fa_digits }})</a>
+    </div>
+    {% if unread_count %}
+      <form method="post" action="{% url 'accounts:notifications_read' %}">
+        {% csrf_token %}
+        <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+        <button class="text-link" type="submit">همه را خوانده‌شده علامت بزن</button>
+      </form>
+    {% endif %}
+    {% if page_obj.object_list %}
+      <ul class="account-notifications">
+        {% for notification in page_obj.object_list %}
+          <li{% if not notification.is_read %} class="is-unread"{% endif %}>
+            <strong>{{ notification.title }}</strong>
+            <p>{{ notification.body }}</p>
+            <small>{{ notification.get_kind_display }} · {{ notification.created_at|jalali_datetime }}</small>
+            <div class="account-links">
+              {% if notification.target_url %}<a class="text-link" href="{{ notification.target_url }}">مشاهدهٔ مورد مرتبط</a>{% endif %}
+              {% if not notification.is_read %}
+                <form method="post" action="{% url 'accounts:notification_read' notification.id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+                  <button class="text-link" type="submit">علامت‌گذاری به‌عنوان خوانده‌شده</button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="صفحه‌بندی اعلان‌ها">
+          {% if page_obj.has_previous %}<a href="{{ previous_url }}">صفحهٔ قبل</a>{% endif %}
+          <span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>
+          {% if page_obj.has_next %}<a href="{{ next_url }}">صفحهٔ بعد</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <strong>{% if status_filter == 'unread' %}اعلان خوانده‌نشده‌ای ندارید{% else %}هنوز اعلانی ندارید{% endif %}</strong>
+        <p>با ثبت تغییر در سفارش‌ها یا هشدار قیمت، اعلان‌های مرتبط در این بخش نمایش داده می‌شوند.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
