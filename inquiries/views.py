@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods
 from accounts.models import CustomerProfile
 from catalog.models import ProductVariant
 from core.context_processors import get_company_contact_details
-from core.seo import json_ld
+from core.seo import canonical_url, json_ld
 from marketplace.models import MarketplaceListing
 
 from .forms import InquiryForm
@@ -70,7 +70,7 @@ def _inquiry_page(request, kind):
         organization = {
             '@type': 'Organization',
             'name': contact_details.public_name or 'آهن‌آلات آریا',
-            'url': request.build_absolute_uri('/'),
+            'url': canonical_url(request, '/'),
         }
         if contact_details.phone or contact_details.email:
             point = {'@type': 'ContactPoint', 'contactType': 'customer service'}
@@ -96,7 +96,7 @@ def _inquiry_page(request, kind):
             '@context': 'https://schema.org',
             '@type': 'ContactPage',
             'name': 'تماس با آهن‌آلات آریا',
-            'url': request.build_absolute_uri(),
+            'url': canonical_url(request),
             'mainEntity': organization,
         })
 

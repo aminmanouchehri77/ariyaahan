@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from accounts.models import CustomerProfile
 from content.forms import ProductQuestionForm, ProductReviewForm
 from content.models import Article, ProductQuestion, ProductReview
-from core.seo import breadcrumb_schema
+from core.seo import breadcrumb_schema, canonical_url
 from pricing.models import PriceObservation
 from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 
@@ -183,7 +183,7 @@ def product_detail(request, slug):
         'name': product.name,
         'description': product.summary or product.name,
         'category': product.category.name,
-        'url': request.build_absolute_uri(product.get_absolute_url()),
+        'url': canonical_url(request, product.get_absolute_url()),
     }
     if review_summary['count']:
         schema['aggregateRating'] = {
@@ -223,7 +223,7 @@ def product_detail(request, slug):
             'priceCurrency': currency,
             'price': format(amount, 'f'),
             'availability': 'https://schema.org/InStock',
-            'url': request.build_absolute_uri(product.get_absolute_url()),
+            'url': canonical_url(request, product.get_absolute_url()),
             'priceValidUntil': timezone.localtime(variant.latest_valid_until).date().isoformat(),
         }
         if variant.sku:
@@ -243,6 +243,7 @@ def product_detail(request, slug):
         'review_form': ProductReviewForm() if customer_profile and not existing_review else None,
         'existing_review': existing_review,
         'related_articles': related_articles,
+        'product_url': canonical_url(request, product.get_absolute_url()),
         'question_form': ProductQuestionForm(initial={
             'display_name': customer_profile.full_name if customer_profile else '',
         }) if customer_profile else None,

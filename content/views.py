@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from core.seo import breadcrumb_schema
+from core.seo import breadcrumb_schema, canonical_url
 from .forms import ArticleCommentForm, CompanyRequestForm, ProductQuestionForm, ProductReviewForm
 from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion, ProductReview
 
@@ -35,7 +35,7 @@ def _public_page_context(page, kind, request):
         'summary_text': (page.summary or default_summary) if page else default_summary,
         'body_text': body or 'متن رسمی این صفحه هنوز از پنل مدیریت منتشر نشده است.',
         'robots_noindex': not bool(page and page.is_published),
-        'canonical': request.build_absolute_uri(request.path),
+        'canonical': canonical_url(request),
         'breadcrumb_schema': breadcrumb_schema(request, [
             ('خانه', '/'), (page.title if page else default_title, request.path),
         ]),
@@ -133,7 +133,7 @@ def article_detail(request, slug):
         status=Article.Status.PUBLISHED,
         published_at__lte=timezone.now(),
     )
-    absolute_url = request.build_absolute_uri(article.get_absolute_url())
+    absolute_url = canonical_url(request, article.get_absolute_url())
     schema = {
         '@context': 'https://schema.org',
         '@type': 'Article',
@@ -246,7 +246,7 @@ def market_news_detail(request, pk):
         '@type': 'NewsArticle',
         'headline': item.headline,
         'datePublished': item.published_at.isoformat(),
-        'mainEntityOfPage': request.build_absolute_uri(item.get_absolute_url()),
+        'mainEntityOfPage': canonical_url(request, item.get_absolute_url()),
         'about': {'@type': 'Product', 'name': item.variant.product.name},
         'publisher': {'@type': 'Organization', 'name': 'آهن‌آلات آریا'},
     }

@@ -17,6 +17,7 @@ from content.models import MarketNews
 from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 from pricing.models import ShippingRate
 from .models import RedirectRule
+from .seo import canonical_url
 
 from .forms import ShippingEstimateForm, SteelWeightForm
 
@@ -113,7 +114,7 @@ def offline(request):
 
 @require_GET
 def robots_txt(request):
-    sitemap_url = request.build_absolute_uri(reverse('core:sitemap'))
+    sitemap_url = canonical_url(request, reverse('core:sitemap'))
     body = '\n'.join((
         'User-agent: *',
         'Disallow: /admin/',

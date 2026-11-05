@@ -1,5 +1,6 @@
 from catalog.models import Category
 from inquiries.models import CompanyContactDetails
+from .seo import canonical_origin
 
 
 def get_company_contact_details(request):
@@ -15,4 +16,5 @@ def navigation_categories(request):
             parent__isnull=True,
         ).order_by('sort_order', 'name')[:8],
         'company_contact_details': get_company_contact_details(request),
+        'canonical_origin': canonical_origin(request),
     }

@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#14273f">
   <meta name="description" content="{% block meta_description %}کاتالوگ و قیمت آهن‌آلات آریا؛ انتخاب دقیق کالا با مشخصات فنی و قیمت قابل پیگیری.{% endblock %}">
   <meta name="robots" content="{% block robots_meta %}index, follow{% endblock %}">
-  <link rel="canonical" href="{% block canonical_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
+  <link rel="canonical" href="{% block canonical_url %}{{ canonical_origin }}{{ request.path }}{% endblock %}">
   <link rel="manifest" href="{% static 'core/manifest.webmanifest' %}">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'core/icons/icon-192.png' %}">
   <link rel="apple-touch-icon" href="{% static 'core/icons/icon-192.png' %}">

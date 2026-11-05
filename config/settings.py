@@ -3,6 +3,7 @@
 import os
 import ast
 from pathlib import Path
+from urllib.parse import urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -203,6 +204,23 @@ PUSH_ALLOWED_HOST_SUFFIXES = tuple(
     if host.strip()
 )
 PUBLIC_SITE_URL = os.getenv('PUBLIC_SITE_URL', '').strip().rstrip('/')
+if PUBLIC_SITE_URL:
+    public_site = urlsplit(PUBLIC_SITE_URL)
+    try:
+        valid_public_site = (
+            public_site.scheme in {'http', 'https'}
+            and bool(public_site.hostname)
+            and public_site.username is None
+            and public_site.password is None
+            and public_site.port in (None, 443 if public_site.scheme == 'https' else 80)
+            and public_site.path in {'', '/'}
+            and not public_site.query
+            and not public_site.fragment
+        )
+    except ValueError:
+        valid_public_site = False
+    if not valid_public_site or (not DEBUG and public_site.scheme != 'https'):
+        raise RuntimeError('PUBLIC_SITE_URL must be a valid canonical origin; production requires HTTPS.')
 TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()
 TWA_SHA256_CERT_FINGERPRINTS = os.getenv('TWA_SHA256_CERT_FINGERPRINTS', '').strip()
 PAYMENT_ENABLED = os.getenv('PAYMENT_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}

@@ -1,3 +1,7 @@
+from types import SimpleNamespace
+from urllib.parse import urlsplit
+
+from django.conf import settings
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
@@ -5,7 +9,16 @@ from catalog.models import Category, Product
 from content.models import Article, CompanyPage, MarketNews
 
 
-class StaticPageSitemap(Sitemap):
+class CanonicalSitemap(Sitemap):
+    def get_urls(self, page=1, site=None, protocol=None):
+        if settings.PUBLIC_SITE_URL:
+            canonical = urlsplit(settings.PUBLIC_SITE_URL)
+            site = SimpleNamespace(domain=canonical.netloc)
+            protocol = canonical.scheme
+        return super().get_urls(page=page, site=site, protocol=protocol)
+
+
+class StaticPageSitemap(CanonicalSitemap):
     changefreq = 'weekly'
     priority = 0.8
 
@@ -29,7 +42,7 @@ class StaticPageSitemap(Sitemap):
         return reverse(item)
 
 
-class CategorySitemap(Sitemap):
+class CategorySitemap(CanonicalSitemap):
     changefreq = 'daily'
     priority = 0.7
 
@@ -43,7 +56,7 @@ class CategorySitemap(Sitemap):
         return item.updated_at
 
 
-class ProductSitemap(Sitemap):
+class ProductSitemap(CanonicalSitemap):
     changefreq = 'daily'
     priority = 0.8
 
@@ -54,7 +67,7 @@ class ProductSitemap(Sitemap):
         return item.updated_at
 
 
-class CompanyPageSitemap(Sitemap):
+class CompanyPageSitemap(CanonicalSitemap):
     changefreq = 'monthly'
     priority = 0.5
 
@@ -67,7 +80,7 @@ class CompanyPageSitemap(Sitemap):
         return item.updated_at
 
 
-class ArticleSitemap(Sitemap):
+class ArticleSitemap(CanonicalSitemap):
     changefreq = 'weekly'
     priority = 0.7
 
@@ -83,7 +96,7 @@ class ArticleSitemap(Sitemap):
         return item.updated_at
 
 
-class MarketNewsSitemap(Sitemap):
+class MarketNewsSitemap(CanonicalSitemap):
     changefreq = 'hourly'
     priority = 0.6
 
