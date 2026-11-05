@@ -17,6 +17,7 @@
     <div class="filter-actions"><button class="button button--navy" type="submit">اعمال فیلتر</button>{% if has_active_filters %}<a class="button button--text" href="{{ request.path }}">پاک‌کردن فیلترها</a>{% endif %}<a class="button button--outline" href="{% url 'catalog:compare' %}">مقایسهٔ کالاها ({{ compare_count|fa_digits }})</a></div>
   </form>
   </details>
+  {% if active_filter_chips %}<nav class="active-filter-chips" aria-label="فیلترهای فعال"><strong>فیلترهای فعال</strong>{% for chip in active_filter_chips %}<span class="active-filter-chip">{{ chip.label }}<a href="{{ chip.remove_url }}" aria-label="حذف {{ chip.label }}">×</a></span>{% endfor %}<a class="text-link" href="{{ request.path }}">پاک‌کردن همه</a></nav>{% endif %}
   <div class="results-heading"><h2>محصولات {{ category.name }}</h2><span>{{ page_obj.paginator.count|fa_digits }} گونه</span></div>
   {% if page_obj.object_list %}
   <div class="market-table-wrap">

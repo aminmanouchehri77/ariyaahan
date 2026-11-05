@@ -104,6 +104,8 @@
 
 {% if latest_market_news %}<section class="section content-section" aria-labelledby="latest-news-title"><div class="container"><div class="section-heading"><div><p class="eyebrow eyebrow--dark">تغییرهای تأییدشده</p><h2 id="latest-news-title">آخرین خبرهای قیمت</h2></div><a class="text-link" href="{% url 'content:market_news_list' %}">همهٔ خبرها ←</a></div><div class="market-news-grid">{% for item in latest_market_news %}<article class="market-news-card market-news-card--{{ item.trend }}"><div class="market-news-card__top"><span class="tag {% if item.trend == 'rising' %}tag--stale{% elif item.trend == 'falling' %}tag--available{% else %}tag--neutral{% endif %}">{{ item.get_trend_display }}</span><time datetime="{{ item.published_at|date:'c' }}">{{ item.published_at|jalali_datetime }}</time></div><h3><a href="{{ item.get_absolute_url }}">{{ item.headline }}</a></h3><p>{{ item.summary }}</p></article>{% endfor %}</div></div></section>{% endif %}
 
+{% include 'catalog/_recently_viewed.html' %}
+
 <section class="assurance-section">
   <div class="container assurance-grid">
     <div class="assurance-intro"><p class="eyebrow">روشن و قابل پیگیری</p><h2>برای خرید فولاد،<br>جزئیات اهمیت دارد.</h2></div>

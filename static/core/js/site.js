@@ -260,3 +260,48 @@
     installPrompt = null;
   });
 })();
+
+(() => {
+  const section = document.querySelector('[data-recently-viewed]');
+  const list = section?.querySelector('[data-recently-viewed-list]');
+  if (!section || !list) return;
+
+  const storageKey = 'ariaa_recent_products_v1';
+  const current = document.querySelector('[data-current-product]');
+  const normalize = (items) => (Array.isArray(items) ? items : []).filter((item) => {
+    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' || typeof item.url !== 'string') return false;
+    if (!item.name.trim() || item.name.length > 180 || item.id.length > 32) return false;
+    try {
+      const url = new URL(item.url, window.location.origin);
+      return url.origin === window.location.origin && url.pathname.startsWith('/product/');
+    } catch (_) {
+      return false;
+    }
+  }).slice(0, 6);
+
+  try {
+    let products = normalize(JSON.parse(window.localStorage.getItem(storageKey) || '[]'));
+    const currentId = current?.dataset.productId || '';
+    list.replaceChildren();
+    products.filter((item) => item.id !== currentId).forEach((item) => {
+      const link = document.createElement('a');
+      link.className = 'recent-product-link';
+      link.href = item.url;
+      link.textContent = item.name;
+      list.append(link);
+    });
+    section.hidden = list.childElementCount === 0;
+
+    if (current?.dataset.productId && current.dataset.productName && current.dataset.productUrl) {
+      const currentProduct = {
+        id: current.dataset.productId,
+        name: current.dataset.productName,
+        url: current.dataset.productUrl,
+      };
+      products = [currentProduct, ...products.filter((item) => item.id !== currentProduct.id)].slice(0, 6);
+      window.localStorage.setItem(storageKey, JSON.stringify(products));
+    }
+  } catch (_) {
+    section.hidden = true;
+  }
+})();

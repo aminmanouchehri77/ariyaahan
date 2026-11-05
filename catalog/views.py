@@ -93,6 +93,25 @@ def category_detail(request, slug):
     query_without_page = request.GET.copy()
     query_without_page.pop('page', None)
     has_active_filters = any(value for key, value in query_without_page.items() if key in filters.fields)
+    active_filter_chips = []
+    for name, value in filters.cleaned_data.items():
+        if name not in request.GET or value in ('', None):
+            continue
+        field = filters.fields[name]
+        if name == 'manufacturer':
+            value_label = value.name
+        elif hasattr(field, 'choices'):
+            value_label = dict(field.choices).get(str(value), str(value))
+        else:
+            value_label = str(value)
+        query = request.GET.copy()
+        query.pop(name, None)
+        query.pop('page', None)
+        remove_url = f'{request.path}?{query.urlencode()}' if query else request.path
+        active_filter_chips.append({
+            'label': f'{field.label}: {value_label}',
+            'remove_url': remove_url,
+        })
     previous_url = next_url = ''
     if page.has_previous():
         query = request.GET.copy()
@@ -108,6 +127,7 @@ def category_detail(request, slug):
         'filters': filters,
         'ordering': ordering,
         'has_active_filters': has_active_filters,
+        'active_filter_chips': active_filter_chips,
         'previous_url': previous_url,
         'next_url': next_url,
         'category_indexable': has_variants and not has_active_filters and page.number == 1,

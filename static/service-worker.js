@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ariaa-shell-v1';
+const CACHE_NAME = 'ariaa-shell-v2';
 const SHELL_ASSETS = [
   '/offline/',
   '/static/core/css/site.css',
