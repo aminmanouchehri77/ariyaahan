@@ -18,9 +18,9 @@
 </section>
 <section class="section content-section">
   <div class="container narrow-container">
-    {% if tracked_requests %}
+    {% if page_obj.object_list %}
       <div class="result-list">
-        {% for item in tracked_requests %}
+        {% for item in page_obj.object_list %}
           <article class="result-card">
             <div>
               <strong>{{ item.type }} · {{ item.status }}</strong>
@@ -30,6 +30,7 @@
           </article>
         {% endfor %}
       </div>
+      {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌بندی درخواست‌ها">{% if previous_url %}<a href="{{ previous_url }}">صفحهٔ قبل</a>{% endif %}<span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>{% if next_url %}<a href="{{ next_url }}">صفحهٔ بعد</a>{% endif %}</nav>{% endif %}
     {% else %}
       <div class="empty-state">
         <strong>درخواستی برای پیگیری پیدا نشد</strong>

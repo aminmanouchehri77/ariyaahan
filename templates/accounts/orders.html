@@ -4,11 +4,67 @@
 {% block meta_description %}پیگیری وضعیت پیش‌فاکتورها و سفارش‌های ثبت‌شده در حساب شما.{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><span>سفارش‌ها</span></nav><p class="eyebrow eyebrow--dark">پیگیری</p><h1>پیش‌فاکتورها و سفارش‌ها</h1><p>ثبت پیش‌فاکتور به‌تنهایی به معنی سفارش قطعی یا پرداخت نیست.</p></div></section>
-<section class="section content-section"><div class="container narrow-container">
-  <h2>سفارش‌های تأییدشده</h2>
-  {% if orders %}<div class="result-list">{% for order in orders %}<article class="result-card"><span><strong>{{ order.order_number }} · {{ order.get_status_display }}</strong><small>{{ order.created_at|date:'Y/m/d H:i' }}{% if order.delivery_city %} · مقصد {{ order.delivery_city }}{% endif %}</small><ul>{% for item in order.items.all %}<li>{{ item.product_name }} — {{ item.quantity|fa_digits }} {{ item.get_quantity_unit_display }}</li>{% endfor %}</ul></span></article>{% endfor %}</div>{% else %}<div class="empty-state"><strong>سفارشی ثبت نشده</strong><p>سفارش پس از بررسی و تأیید پیش‌فاکتور از سوی کارشناسان ایجاد می‌شود.</p></div>{% endif %}
-  <h2>پیش‌فاکتورها</h2>
-  {% if preinvoices %}<div class="result-list">{% for preinvoice in preinvoices %}<article class="result-card"><span><strong>درخواست #{{ preinvoice.pk|fa_digits }} · {{ preinvoice.get_status_display }}</strong><small>{{ preinvoice.created_at|date:'Y/m/d H:i' }} · {{ preinvoice.items.count|fa_digits }} ردیف</small></span><a href="{% url 'orders:preinvoice_detail' preinvoice.public_id %}">رسید</a></article>{% endfor %}</div>{% else %}<div class="empty-state"><strong>پیش‌فاکتوری در حساب ثبت نشده</strong><p>درخواست‌های بعدی که پس از ورود ثبت کنید در این بخش دیده می‌شوند.</p></div>{% endif %}
-</div></section>
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه">
+      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
+      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
+      <span>سفارش‌ها</span>
+    </nav>
+    <p class="eyebrow eyebrow--dark">پیگیری خرید</p>
+    <h1>پیش‌فاکتورها و سفارش‌ها</h1>
+    <p>ثبت پیش‌فاکتور به‌تنهایی به معنی سفارش قطعی یا پرداخت نیست.</p>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container narrow-container">
+    <h2>سفارش‌های تأییدشده</h2>
+    {% if order_page.object_list %}
+      <div class="result-list">
+        {% for order in order_page.object_list %}
+          <article class="result-card">
+            <span>
+              <strong>{{ order.order_number }} · {{ order.get_status_display }}</strong>
+              <small>{{ order.created_at|date:'Y/m/d H:i' }}{% if order.delivery_city %} · مقصد {{ order.delivery_city }}{% endif %}</small>
+              <ul>{% for item in order.items.all %}<li>{{ item.product_name }} — {{ item.quantity|fa_digits }} {{ item.get_quantity_unit_display }}</li>{% endfor %}</ul>
+            </span>
+          </article>
+        {% endfor %}
+      </div>
+      {% if order_page.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="صفحه‌بندی سفارش‌ها">
+          {% if previous_order_url %}<a href="{{ previous_order_url }}">صفحهٔ قبل</a>{% endif %}
+          <span>صفحهٔ {{ order_page.number|fa_digits }} از {{ order_page.paginator.num_pages|fa_digits }}</span>
+          {% if next_order_url %}<a href="{{ next_order_url }}">صفحهٔ بعد</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty-state"><strong>سفارشی ثبت نشده</strong><p>سفارش پس از بررسی و تأیید پیش‌فاکتور از سوی کارشناسان ایجاد می‌شود.</p></div>
+    {% endif %}
+
+    <h2>پیش‌فاکتورها</h2>
+    {% if preinvoice_page.object_list %}
+      <div class="result-list">
+        {% for preinvoice in preinvoice_page.object_list %}
+          <article class="result-card">
+            <span>
+              <strong>درخواست #{{ preinvoice.pk|fa_digits }} · {{ preinvoice.get_status_display }}</strong>
+              <small>{{ preinvoice.created_at|date:'Y/m/d H:i' }} · {{ preinvoice.items.count|fa_digits }} ردیف</small>
+            </span>
+            <a href="{% url 'orders:preinvoice_detail' preinvoice.public_id %}">رسید</a>
+          </article>
+        {% endfor %}
+      </div>
+      {% if preinvoice_page.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="صفحه‌بندی پیش‌فاکتورها">
+          {% if previous_preinvoice_url %}<a href="{{ previous_preinvoice_url }}">صفحهٔ قبل</a>{% endif %}
+          <span>صفحهٔ {{ preinvoice_page.number|fa_digits }} از {{ preinvoice_page.paginator.num_pages|fa_digits }}</span>
+          {% if next_preinvoice_url %}<a href="{{ next_preinvoice_url }}">صفحهٔ بعد</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty-state"><strong>پیش‌فاکتوری در حساب ثبت نشده</strong><p>درخواست‌های بعدی که پس از ورود ثبت کنید، در این بخش دیده می‌شوند.</p></div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

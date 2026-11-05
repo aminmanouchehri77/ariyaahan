@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
 from django.http import JsonResponse
@@ -182,9 +183,39 @@ def orders_view(request):
     profile = CustomerProfile.objects.filter(user=request.user).first()
     orders = profile.orders.prefetch_related('items', 'status_events') if profile else []
     preinvoices = profile.preinvoices.prefetch_related('items') if profile else []
+    order_page = Paginator(orders, 20).get_page(request.GET.get('orders_page'))
+    preinvoice_page = Paginator(preinvoices, 20).get_page(request.GET.get('preinvoices_page'))
+
+    def page_url(parameter, page_number, other_parameter, other_page):
+        query = request.GET.copy()
+        query.pop(parameter, None)
+        if page_number:
+            query[parameter] = page_number
+        if other_page.number > 1:
+            query[other_parameter] = other_page.number
+        else:
+            query.pop(other_parameter, None)
+        return f'?{query.urlencode()}' if query else request.path
+
     return render(request, 'accounts/orders.html', {
-        'orders': orders,
-        'preinvoices': preinvoices,
+        'order_page': order_page,
+        'preinvoice_page': preinvoice_page,
+        'previous_order_url': page_url(
+            'orders_page', order_page.previous_page_number() if order_page.has_previous() else None,
+            'preinvoices_page', preinvoice_page,
+        ),
+        'next_order_url': page_url(
+            'orders_page', order_page.next_page_number() if order_page.has_next() else None,
+            'preinvoices_page', preinvoice_page,
+        ),
+        'previous_preinvoice_url': page_url(
+            'preinvoices_page', preinvoice_page.previous_page_number() if preinvoice_page.has_previous() else None,
+            'orders_page', order_page,
+        ),
+        'next_preinvoice_url': page_url(
+            'preinvoices_page', preinvoice_page.next_page_number() if preinvoice_page.has_next() else None,
+            'orders_page', order_page,
+        ),
         'has_customer_profile': bool(profile),
     })
 
@@ -220,7 +251,14 @@ def requests_view(request):
                 'url': reverse('marketplace:listing_status', kwargs={'public_id': record.public_id}),
             })
     tracked_requests.sort(key=lambda item: item['created_at'], reverse=True)
-    return render(request, 'accounts/requests.html', {'tracked_requests': tracked_requests})
+    page_obj = Paginator(tracked_requests, 20).get_page(request.GET.get('page'))
+    previous_url = f'?page={page_obj.previous_page_number()}' if page_obj.has_previous() else ''
+    next_url = f'?page={page_obj.next_page_number()}' if page_obj.has_next() else ''
+    return render(request, 'accounts/requests.html', {
+        'page_obj': page_obj,
+        'previous_url': previous_url,
+        'next_url': next_url,
+    })
 
 
 @login_required
