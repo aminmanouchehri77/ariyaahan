@@ -45,6 +45,18 @@ ALLOWED_HOSTS = [
     for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+if not DEBUG:
+    if (
+        len(SECRET_KEY) < 50
+        or len(set(SECRET_KEY)) < 5
+        or SECRET_KEY.startswith('django-insecure-')
+    ):
+        raise RuntimeError('Production requires a unique, unpredictable Django secret key of at least 50 characters.')
+
+    normalized_hosts = {host.lower().rstrip('.') for host in ALLOWED_HOSTS}
+    local_hosts = {'localhost', '127.0.0.1', '[::1]', '::1'}
+    if not normalized_hosts or '*' in normalized_hosts or normalized_hosts <= local_hosts:
+        raise RuntimeError('Set explicit production ALLOWED_HOSTS; wildcard and localhost-only values are not accepted.')
 
 
 # Application definition
@@ -236,3 +248,4 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "1").strip().lower() in {"1", "true", "yes", "on"}
     SECURE_HSTS_SECONDS = max(0, int(os.getenv('SECURE_HSTS_SECONDS', '0')))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv('SECURE_HSTS_INCLUDE_SUBDOMAINS', '0').strip().lower() in {"1", "true", "yes", "on"}
+    SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', '0').strip().lower() in {"1", "true", "yes", "on"}
