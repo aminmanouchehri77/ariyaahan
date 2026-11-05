@@ -10,7 +10,45 @@ from accounts.models import CustomerProfile
 from .cart import Cart, CartError
 from .forms import CartQuantityForm, PreInvoiceForm
 from .models import PreInvoice, PreInvoiceItem
-from .services import build_cart_context, snapshot_line
+from .services import (
+    build_cart_context,
+    checkout_quote_changes,
+    checkout_quote_snapshot,
+    snapshot_line,
+)
+
+
+CHECKOUT_QUOTE_SESSION_KEY = 'ariaa_checkout_quote'
+CHECKOUT_ACK_SESSION_KEY = 'ariaa_checkout_quote_ack_required'
+CHECKOUT_CHANGES_SESSION_KEY = 'ariaa_checkout_quote_changes'
+
+
+def _set_checkout_quote_context(context, *, confirmation_required=False, changes=None):
+    context['quote_confirmation_required'] = confirmation_required
+    context['quote_changes'] = changes or []
+    return context
+
+
+def _remember_checkout_quote(request, snapshot):
+    previous = request.session.get(CHECKOUT_QUOTE_SESSION_KEY)
+    changes = checkout_quote_changes(previous, snapshot) if previous else []
+    confirmation_required = bool(
+        request.session.get(CHECKOUT_ACK_SESSION_KEY) or changes
+    )
+    request.session[CHECKOUT_QUOTE_SESSION_KEY] = snapshot
+    if changes:
+        request.session[CHECKOUT_ACK_SESSION_KEY] = True
+        request.session[CHECKOUT_CHANGES_SESSION_KEY] = changes
+    elif not confirmation_required:
+        request.session.pop(CHECKOUT_ACK_SESSION_KEY, None)
+        request.session.pop(CHECKOUT_CHANGES_SESSION_KEY, None)
+    return confirmation_required, request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+
+
+def _clear_checkout_quote(request):
+    request.session.pop(CHECKOUT_QUOTE_SESSION_KEY, None)
+    request.session.pop(CHECKOUT_ACK_SESSION_KEY, None)
+    request.session.pop(CHECKOUT_CHANGES_SESSION_KEY, None)
 
 
 @never_cache
@@ -76,7 +114,12 @@ def checkout(request):
         'customer_name': profile.full_name if profile else '',
         'mobile': profile.mobile if profile else '',
     }, addresses=profile.addresses.all() if profile else None)
-    return render(request, 'orders/checkout.html', context)
+    confirmation_required, changes = _remember_checkout_quote(request, checkout_quote_snapshot(context))
+    return render(request, 'orders/checkout.html', _set_checkout_quote_context(
+        context,
+        confirmation_required=confirmation_required,
+        changes=changes,
+    ))
 
 
 @never_cache
@@ -90,9 +133,48 @@ def submit_preinvoice(request):
     profile = CustomerProfile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
     addresses = profile.addresses.all() if profile else None
     form = PreInvoiceForm(request.POST, addresses=addresses)
+    current_quote = checkout_quote_snapshot(context)
+    previous_quote = request.session.get(CHECKOUT_QUOTE_SESSION_KEY)
+    if previous_quote is None:
+        messages.warning(request, 'صفحهٔ ثبت درخواست منقضی شده است؛ اقلام و قیمت‌ها را دوباره مرور کنید.')
+        return redirect('orders:checkout')
+    quote_changes = checkout_quote_changes(previous_quote, current_quote)
+    confirmation_required = bool(
+        request.session.get(CHECKOUT_ACK_SESSION_KEY) or quote_changes
+    )
+    if quote_changes:
+        request.session[CHECKOUT_QUOTE_SESSION_KEY] = current_quote
+        request.session[CHECKOUT_ACK_SESSION_KEY] = True
+        request.session[CHECKOUT_CHANGES_SESSION_KEY] = quote_changes
+    else:
+        quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+
+    if quote_changes:
+        form_data = request.POST.copy()
+        form_data['price_confirmation'] = ''
+        form = PreInvoiceForm(form_data, addresses=addresses)
+        form.add_error(None, 'قیمت یا موجودی تغییر کرده است؛ موارد تازه را بررسی و دوباره ثبت کنید.')
+        context['form'] = form
+        return render(request, 'orders/checkout.html', _set_checkout_quote_context(
+            context,
+            confirmation_required=True,
+            changes=quote_changes,
+        ))
     if not form.is_valid():
         context['form'] = form
-        return render(request, 'orders/checkout.html', context)
+        return render(request, 'orders/checkout.html', _set_checkout_quote_context(
+            context,
+            confirmation_required=confirmation_required,
+            changes=quote_changes,
+        ))
+    if confirmation_required and not form.cleaned_data['price_confirmation']:
+        form.add_error('price_confirmation', 'برای ادامه، تغییرهای قیمت و موجودی را بررسی و تأیید کنید.')
+        context['form'] = form
+        return render(request, 'orders/checkout.html', _set_checkout_quote_context(
+            context,
+            confirmation_required=True,
+            changes=quote_changes,
+        ))
 
     selected_address = form.cleaned_data['saved_address']
     address_values = {
@@ -115,20 +197,23 @@ def submit_preinvoice(request):
             customer_note=form.cleaned_data['customer_note'],
             status=(
                 PreInvoice.Status.PENDING
-                if all(line['price_is_usable'] for line in context['cart_lines'])
+                if all(line['price_is_usable'] and line['stock_is_usable'] for line in context['cart_lines'])
                 else PreInvoice.Status.REVIEW
             ),
         )
         for line in context['cart_lines']:
             snapshot = snapshot_line(line)
             price_observation_id = snapshot.pop('price_observation_id')
+            stock_observation_id = snapshot.pop('stock_observation_id')
             PreInvoiceItem.objects.create(
                 preinvoice=preinvoice,
                 price_observation_id=price_observation_id,
+                stock_observation_id=stock_observation_id,
                 **snapshot,
             )
 
     Cart(request).clear()
+    _clear_checkout_quote(request)
     messages.success(request, 'درخواست پیش‌فاکتور شما ثبت شد.')
     return redirect('orders:preinvoice_detail', public_id=preinvoice.public_id)
 

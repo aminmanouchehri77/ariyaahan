@@ -4,6 +4,7 @@ from django import template
 from django.utils.html import json_script
 from django.utils.safestring import mark_safe
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 register = template.Library()
 PERSIAN_DIGITS = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
@@ -37,6 +38,10 @@ def jalali_datetime(value):
         return ''
     import jdatetime
 
+    if isinstance(value, str):
+        value = parse_datetime(value)
+        if value is None:
+            return ''
     local_value = timezone.localtime(value) if timezone.is_aware(value) else value
     jalali_value = jdatetime.datetime.fromgregorian(datetime=local_value)
     return jalali_value.strftime('%Y/%m/%d %H:%M').translate(PERSIAN_DIGITS)

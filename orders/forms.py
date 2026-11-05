@@ -32,6 +32,10 @@ class PreInvoiceForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={'rows': 4, 'placeholder': 'زمان تحویل یا نکتهٔ موردنیاز برای برآورد'}),
     )
+    price_confirmation = forms.BooleanField(
+        label='تغییرهای قیمت و موجودی بالا را بررسی کرده‌ام و با همین اطلاعات درخواست را ثبت می‌کنم.',
+        required=False,
+    )
 
     def __init__(self, *args, addresses=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,6 +59,7 @@ class PreInvoiceForm(forms.Form):
         self.fields['delivery_mobile'].widget.attrs.update({'inputmode': 'tel', 'autocomplete': 'tel', 'dir': 'ltr'})
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
+        self.fields['price_confirmation'].widget.attrs['class'] = 'form-checkbox'
 
     def clean_mobile(self):
         return normalize_iran_mobile(self.cleaned_data['mobile'])

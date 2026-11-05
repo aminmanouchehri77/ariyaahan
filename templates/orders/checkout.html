@@ -13,6 +13,32 @@
   <form class="checkout-form" method="post" action="{% url 'orders:submit_preinvoice' %}" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% if quote_changes %}
+      <section class="checkout-change-panel" role="alert" aria-labelledby="checkout-changes-title">
+        <h2 id="checkout-changes-title">قیمت یا موجودی از آخرین بررسی تغییر کرده است</h2>
+        <p>مقادیر قبلی و فعلی را مرور کنید. درخواست تا تأیید این تغییرها ثبت نمی‌شود.</p>
+        <ul>
+          {% for change in quote_changes %}
+            <li>
+              <strong>{{ change.name }} — {{ change.variant_name }}</strong>
+              {% if change.kind == 'added' %}<p>این قلم از آخرین بررسی به سبد اضافه شده است.</p>{% elif change.kind == 'removed' %}<p>این قلم از سبد حذف شده است.</p>{% endif %}
+              {% if change.quantity_changed %}<p>مقدار قبلی: {{ change.old.quantity|default:'—'|fa_digits }} · مقدار فعلی: {{ change.new.quantity|default:'—'|fa_digits }}</p>{% endif %}
+              {% if change.price_changed %}
+                <p>قیمت قبلی: {% if change.old.unit_price %}{{ change.old.unit_price|money:change.old.currency }} / {{ change.old.price_unit_label|default:change.old.price_basis }}{% else %}ثبت نشده{% endif %}{% if change.old.price_observed_at %} · ثبت {{ change.old.price_observed_at|jalali_datetime }}{% endif %}</p>
+                <p>قیمت فعلی: {% if change.new.unit_price %}{{ change.new.unit_price|money:change.new.currency }} / {{ change.new.price_unit_label|default:change.new.price_basis }}{% else %}ثبت نشده یا قابل محاسبه نیست{% endif %}{% if change.new.price_observed_at %} · ثبت {{ change.new.price_observed_at|jalali_datetime }}{% endif %}</p>
+                <p>وضعیت قبلی: {{ change.old.price_state|default:'ثبت نشده' }} · وضعیت فعلی: {{ change.new.price_state|default:'ثبت نشده' }}</p>
+                {% if change.line_total_difference %}<p>تفاوت برآورد ردیف با ارز یکسان: {{ change.line_total_difference|money:change.new.currency }}</p>{% endif %}
+              {% endif %}
+              {% if change.quantity_changed and not change.price_changed and change.line_total_difference %}<p>تفاوت برآورد ردیف پس از تغییر مقدار: {{ change.line_total_difference|money:change.new.currency }}</p>{% endif %}
+              {% if change.stock_changed %}
+                <p>موجودی قبلی: {% if change.old.stock_observation_id %}{{ change.old.stock_status }} — {{ change.old.stock_quantity|fa_digits }} {{ change.old.stock_unit }}{% if change.old.stock_location %} · {{ change.old.stock_location }}{% endif %}{% if change.old.stock_observed_at %} · ثبت {{ change.old.stock_observed_at|jalali_datetime }}{% endif %}{% if change.old.stock_is_usable %} · کافی و معتبر برای مقدار درخواستی{% else %} · نیازمند بررسی برای مقدار درخواستی{% endif %}{% else %}ثبت نشده{% endif %}</p>
+                <p>موجودی فعلی: {% if change.new.stock_observation_id %}{{ change.new.stock_status }} — {{ change.new.stock_quantity|fa_digits }} {{ change.new.stock_unit }}{% if change.new.stock_location %} · {{ change.new.stock_location }}{% endif %}{% if change.new.stock_observed_at %} · ثبت {{ change.new.stock_observed_at|jalali_datetime }}{% endif %}{% if change.new.stock_is_usable %} · کافی و معتبر برای مقدار درخواستی{% else %} · نیازمند بررسی برای مقدار درخواستی{% endif %}{% else %}ثبت نشده{% endif %}</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
     <h2>اطلاعات پیگیری</h2>
     <div class="form-grid">
       <div class="form-field {% if form.customer_name.errors %}form-field--error{% endif %}">{{ form.customer_name.label_tag }}{{ form.customer_name }}{{ form.customer_name.errors }}</div>
@@ -32,11 +58,12 @@
     <div class="form-field {% if form.delivery_note.errors %}form-field--error{% endif %}">{{ form.delivery_note.label_tag }}{{ form.delivery_note }}{{ form.delivery_note.errors }}</div>
     <div class="form-field {% if form.customer_note.errors %}form-field--error{% endif %}">{{ form.customer_note.label_tag }}{{ form.customer_note }}{{ form.customer_note.errors }}</div>
     <p class="inquiry-privacy">با ثبت درخواست، شمارهٔ همراه و اطلاعات اقلام برای پیگیری این پیش‌فاکتور در اختیار تیم فروش قرار می‌گیرد.</p>
+    {% if quote_confirmation_required %}<div class="form-field checkout-price-confirmation{% if form.price_confirmation.errors %} form-field--error{% endif %}"><label for="{{ form.price_confirmation.id_for_label }}">{{ form.price_confirmation }} {{ form.price_confirmation.label }}</label>{{ form.price_confirmation.errors }}</div>{% endif %}
     <button class="button button--gold" type="submit">ثبت درخواست و دریافت رسید</button>
   </form>
   <aside class="checkout-summary">
     <h2>اقلام درخواستی</h2>
-    {% for line in cart_lines %}<div class="checkout-summary__item"><strong>{{ line.variant.product.name }} — {{ line.variant.name }}</strong><span>{{ line.quantity|fa_digits }} {{ line.variant.get_unit_display }}</span>{% if line.line_total %}<small>برآورد: {{ line.line_total|money:line.variant.latest_currency }}</small>{% else %}<small>مبلغ نیازمند استعلام</small>{% endif %}</div>{% endfor %}
+    {% for line in cart_lines %}<div class="checkout-summary__item"><strong>{{ line.variant.product.name }} — {{ line.variant.name }}</strong><span>{{ line.quantity|fa_digits }} {{ line.variant.get_unit_display }}</span>{% if line.line_total %}<small>برآورد: {{ line.line_total|money:line.variant.latest_currency }}</small>{% else %}<small>مبلغ نیازمند استعلام</small>{% endif %}<small>موجودی: {{ line.variant.stock_status }}{% if line.variant.latest_stock_observation_id %} — {{ line.variant.latest_stock_quantity|fa_digits }} {{ line.variant.latest_stock_unit_label }}{% endif %}</small></div>{% endfor %}
     <a class="text-link" href="{% url 'orders:cart' %}">بازگشت و ویرایش سبد ←</a>
   </aside>
 </div></section>

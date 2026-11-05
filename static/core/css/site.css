@@ -289,6 +289,14 @@ textarea.form-control { min-height: 112px; resize: vertical; line-height: 1.9; }
 .form-field--error .form-control { border-color: #bc5555; }
 .errorlist { margin: 0; padding: 0 17px 0 0; color: #a43737; font-size: 10px; }
 .form-errors { padding: 11px 13px; border-radius: 7px; background: #fff0ef; color: #983b39; font-size: 11px; }
+.form-checkbox { width: 20px; min-width: 20px; height: 20px; margin-inline-end: 8px; vertical-align: middle; accent-color: var(--navy); }
+.checkout-price-confirmation label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.9; }
+.checkout-change-panel { margin-bottom: 20px; padding: 15px; border: 1px solid #e5c37e; border-radius: 9px; background: #fff8e9; color: #664d20; }
+.checkout-change-panel h2 { margin: 0 0 7px; color: #6b4d16; font-size: 15px; }
+.checkout-change-panel p { margin: 4px 0; font-size: 10px; line-height: 1.8; }
+.checkout-change-panel ul { margin: 9px 0 0; padding-inline-start: 20px; }
+.checkout-change-panel li { padding: 8px 0; border-top: 1px solid #ecd9af; }
+.checkout-change-panel li > strong { display: block; color: var(--navy); }
 .inquiry-privacy { margin: 0; color: #788696; font-size: 9px; line-height: 1.8; }
 .inquiry-aside { position: sticky; top: 18px; background: #f5f7f8; }
 .inquiry-aside h2 { margin: 8px 0; color: var(--navy); font-size: 17px; }

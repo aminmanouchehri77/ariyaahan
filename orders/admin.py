@@ -6,7 +6,7 @@ from .models import Order, OrderItem, OrderStatusEvent, PaymentRecord, PreInvoic
 from .services import convert_preinvoice_to_order
 
 
-@admin.action(description='تأیید درخواست‌های انتخاب‌شده برای بررسی نهایی قیمت')
+@admin.action(description='تأیید درخواست‌های انتخاب‌شده برای بررسی نهایی قیمت و موجودی')
 def confirm_preinvoices(modeladmin, request, queryset):
     changed = 0
     for preinvoice in queryset.filter(status__in=(PreInvoice.Status.PENDING, PreInvoice.Status.REVIEW)):
@@ -45,6 +45,8 @@ class PreInvoiceItemInline(admin.TabularInline):
         'product_name', 'variant_name', 'sku', 'quantity', 'quantity_unit',
         'unit_price', 'currency', 'price_basis', 'price_unit_label', 'line_total',
         'price_is_usable', 'tax_included', 'availability', 'price_location', 'price_observed_at', 'price_valid_until',
+        'stock_observation', 'stock_quantity', 'stock_unit', 'stock_is_usable', 'stock_available',
+        'stock_location', 'stock_source', 'stock_observed_at', 'stock_valid_until',
         'created_at',
     )
 

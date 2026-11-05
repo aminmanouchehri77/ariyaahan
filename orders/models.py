@@ -44,8 +44,8 @@ CURRENCY_CHOICES = (
 
 class PreInvoice(models.Model):
     class Status(models.TextChoices):
-        PENDING = 'pending', 'در انتظار تأیید قیمت'
-        REVIEW = 'review', 'نیازمند بررسی قیمت/واحد'
+        PENDING = 'pending', 'در انتظار بررسی قیمت و موجودی'
+        REVIEW = 'review', 'نیازمند بررسی قیمت/واحد/موجودی'
         CONFIRMED = 'confirmed', 'تأیید شده'
         CONVERTED = 'converted', 'تبدیل به سفارش'
         CANCELLED = 'cancelled', 'لغو شده'
@@ -142,6 +142,18 @@ class PreInvoiceItem(models.Model):
     price_location = models.CharField('محل تحویل قیمت', max_length=140, blank=True)
     price_observed_at = models.DateTimeField('زمان مشاهدهٔ قیمت', null=True, blank=True)
     price_valid_until = models.DateTimeField('اعتبار قیمت تا', null=True, blank=True)
+    stock_observation = models.ForeignKey(
+        'pricing.StockObservation', verbose_name='ثبت موجودی مبنا', null=True, blank=True,
+        related_name='preinvoice_items', on_delete=models.SET_NULL,
+    )
+    stock_quantity = models.DecimalField('موجودی هنگام ثبت', max_digits=14, decimal_places=3, null=True, blank=True)
+    stock_unit = models.CharField('واحد موجودی', max_length=12, blank=True)
+    stock_is_usable = models.BooleanField('موجودی برای مقدار درخواستی کافی و معتبر است', default=False)
+    stock_available = models.BooleanField('موجودی هنگام ثبت قابل سفارش بود', null=True, blank=True)
+    stock_location = models.CharField('محل موجودی هنگام ثبت', max_length=140, blank=True)
+    stock_source = models.CharField('منبع ثبت موجودی', max_length=160, blank=True)
+    stock_observed_at = models.DateTimeField('زمان ثبت موجودی', null=True, blank=True)
+    stock_valid_until = models.DateTimeField('اعتبار موجودی تا', null=True, blank=True)
     created_at = models.DateTimeField('زمان ثبت ردیف', auto_now_add=True)
 
     class Meta:
