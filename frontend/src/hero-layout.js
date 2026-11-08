@@ -1,6 +1,6 @@
 // Composition of the 3D hero.
 //
-// Pieces form one dense, parallel bundle: they must not intersect in 3D and
+// Pieces keep their individual angles; they must not intersect in 3D and
 // must not overlap each other on screen either. The seed below is the art direction; the final positions
 // in hero-layout.solved.json are produced by scripts/solve-hero-layout.mjs,
 // which resolves any 3D overlap and then pulls every piece as close to the
@@ -31,35 +31,31 @@ function plateStackGeometry(count = 4, width = 1.5, thickness = 0.04, length = 4
   return mergeGeometries(plates);
 }
 
-// All pieces share one length axis and are stacked across it like a fanned
-// bundle: close together, never crossing in 3D or on screen.
-export const LENGTH_AXIS = new THREE.Vector3(-0.8, 0.46, 0.38).normalize();
-// Stacking direction: perpendicular to the length axis in the picture plane.
-export const STACK_AXIS = new THREE.Vector3(-LENGTH_AXIS.y, LENGTH_AXIS.x, 0).normalize().multiplyScalar(-1);
-
-function orient(roll = 0) {
-  const align = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), LENGTH_AXIS);
-  const spin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), roll);
-  const euler = new THREE.Euler().setFromQuaternion(align.multiply(spin), 'XYZ');
-  return [euler.x, euler.y, euler.z];
-}
-
+// The original art direction: pieces at different angles around a hero
+// I-beam, like steel sections tossed into the air. The solver keeps every
+// angle and only moves pieces apart/together so nothing intersects in 3D or
+// overlaps on screen.
 export function seedLayout() {
-  const slot = (k, stagger = 0, depth = 0) => {
-    const p = STACK_AXIS.clone().multiplyScalar(k * 2.0).addScaledVector(LENGTH_AXIS, stagger);
-    return [p.x, p.y, depth];
-  };
   const pieces = [
-    { key: 'tube', geometry: tubeGeometry(5.0, 0.2, 0.02), material: 'bright', pos: slot(0, 0.9, -0.3), rot: orient(0) },
-    { key: 'angle', geometry: angleGeometry(5.2, 0.34, 0.04), material: 'mill', pos: slot(1, 0.5, -0.2), rot: orient(0.6) },
-    { key: 'beam', geometry: iBeamGeometry(6.6, 0.62, 0.32, 0.045, 0.065), material: 'dark', pos: slot(2, 0.1, -0.1), rot: orient(0.25) },
-    { key: 'sheets', geometry: plateStackGeometry(), material: 'mill', pos: slot(3.3, -0.2, 0), rot: orient(1.15) },
-    { key: 'box', geometry: boxSectionGeometry(5.6, 0.36, 0.36, 0.025, 0.035), material: 'dark', pos: slot(4.6, -0.5, 0.1), rot: orient(0.3) },
+    { key: 'beam', geometry: iBeamGeometry(6.5, 0.62, 0.32, 0.045, 0.065), material: 'dark', pos: [1.8, 0.9, -1.2], rot: [0.35, -0.55, 0.62], anchor: true },
+    { key: 'beam2', geometry: iBeamGeometry(5.5, 0.5, 0.26), material: 'mill', pos: [3.2, -1.1, -2.6], rot: [-0.2, 0.5, -0.35] },
+    { key: 'box', geometry: boxSectionGeometry(5, 0.36, 0.36, 0.025, 0.035), material: 'dark', pos: [0.2, -1.6, -0.6], rot: [0.1, 0.9, 0.18] },
+    { key: 'tube', geometry: tubeGeometry(5, 0.2, 0.02), material: 'bright', pos: [2.6, 2.2, -3.4], rot: [0.5, 0.2, 1.1] },
+    { key: 'angle', geometry: angleGeometry(4.6, 0.34, 0.04), material: 'mill', pos: [-1.6, 1.7, -2.8], rot: [-0.4, 0.8, 0.4] },
+    { key: 'sheets', geometry: plateStackGeometry(4, 1.4, 0.04, 3.8, 0.11), material: 'mill', pos: [-1.2, -0.4, -1.8], rot: [0.95, 0.45, -0.25] },
   ];
-  const rebar = rebarGeometry(5.6, 0.07);
+  const rebar = rebarGeometry(5.2, 0.07);
+  // Five parallel bars, stepped apart perpendicular to their on-screen axis
+  // so each one reads as a separate bar.
+  const rebarRot = [0.2, -0.95, -0.42];
+  const axis = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(...rebarRot));
+  const side = new THREE.Vector2(-axis.y, axis.x).normalize();
   for (let i = 0; i < 5; i += 1) {
-    const base = slot(5.6 + i * 0.2, -0.8 - i * 0.12, 0.2 + i * 0.02);
-    pieces.push({ key: `rebar${i}`, geometry: rebar, material: 'rebar', group: 'rebars', pos: base, rot: orient(i * 0.4) });
+    const k = i - 2;
+    pieces.push({
+      key: `rebar${i}`, geometry: rebar, material: 'rebar', group: 'rebars',
+      pos: [0.6 + side.x * k * 0.25, -0.1 + side.y * k * 0.25, 0.6 - k * 0.05], rot: rebarRot,
+    });
   }
   return pieces;
 }
