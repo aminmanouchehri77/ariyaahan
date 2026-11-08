@@ -11,8 +11,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from core.seo import breadcrumb_schema, canonical_url
+from core.throttle import submission_allowed
 from .forms import ArticleCommentForm, CompanyRequestForm, ProductQuestionForm, ProductReviewForm
-from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem, ProductQuestion, ProductReview
+from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyRequest, FAQ, MarketNews, MediaItem
 
 
 PAGE_SIZE = 12
@@ -74,7 +75,11 @@ def company_request(request, kind):
     except KeyError as error:
         raise Http404 from error
     form = CompanyRequestForm(request.POST or None, kind=model_kind)
-    if request.method == 'POST' and form.is_valid():
+    throttled = request.method == 'POST' and not submission_allowed(request, f'company-{model_kind}')
+    if throttled:
+        form.is_valid()
+        form.add_error(None, 'تعداد ارسال‌های شما در چند دقیقهٔ اخیر زیاد بوده است؛ کمی بعد دوباره تلاش کنید.')
+    elif request.method == 'POST' and form.is_valid():
         company_request_obj = form.save(commit=False)
         company_request_obj.source_path = request.path[:255]
         if request.user.is_authenticated:

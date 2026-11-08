@@ -25,9 +25,10 @@
           <article class="result-card">
             <span>
               <strong>{{ order.order_number }} · {{ order.get_status_display }}</strong>
-              <small>{{ order.created_at|date:'Y/m/d H:i' }}{% if order.delivery_city %} · مقصد {{ order.delivery_city }}{% endif %}</small>
-              <ul>{% for item in order.items.all %}<li>{{ item.product_name }} — {{ item.quantity|fa_digits }} {{ item.get_quantity_unit_display }}</li>{% endfor %}</ul>
+              <small>{{ order.created_at|jalali_datetime }}{% if order.delivery_city %} · مقصد {{ order.delivery_city }}{% endif %}</small>
+              <ul>{% for item in order.items.all %}<li>{{ item.product_name }} — {{ item.quantity|floatformat:-3|fa_digits }} {{ item.get_quantity_unit_display }}</li>{% endfor %}</ul>
             </span>
+            <a href="{% url 'orders:order_detail' order.public_id %}">{% if order.status == 'awaiting_payment' %}جزئیات و پرداخت{% else %}جزئیات سفارش{% endif %}</a>
           </article>
         {% endfor %}
       </div>
@@ -49,7 +50,7 @@
           <article class="result-card">
             <span>
               <strong>درخواست #{{ preinvoice.pk|fa_digits }} · {{ preinvoice.get_status_display }}</strong>
-              <small>{{ preinvoice.created_at|date:'Y/m/d H:i' }} · {{ preinvoice.items.count|fa_digits }} ردیف</small>
+              <small>{{ preinvoice.created_at|jalali_datetime }} · {{ preinvoice.items.count|fa_digits }} ردیف</small>
             </span>
             <a href="{% url 'orders:preinvoice_detail' preinvoice.public_id %}">رسید</a>
           </article>

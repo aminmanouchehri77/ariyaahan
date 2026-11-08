@@ -1,0 +1,13 @@
+{
+  "name": "aria-steel-frontend",
+  "private": true,
+  "description": "Build sources for the 3D hero and the product render pipeline.",
+  "scripts": {
+    "build": "esbuild src/hero.js --bundle --minify --format=esm --target=es2020 --legal-comments=none --outfile=../static/core/js/hero.js",
+    "build:render": "esbuild src/render.js --bundle --format=esm --outfile=build/render.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "three": "0.170.0"
+  }
+}

@@ -9,16 +9,17 @@ from accounts.models import CustomerProfile
 from catalog.models import ProductVariant
 from core.context_processors import get_company_contact_details
 from core.seo import canonical_url, json_ld
+from core.throttle import submission_allowed
 from marketplace.models import MarketplaceListing
 
 from .forms import InquiryForm
-from .models import CompanyContactDetails, Inquiry
+from .models import Inquiry
 
 
 def _inquiry_page(request, kind):
     selected_variant = None
-    variant_id = request.GET.get('variant') if kind == Inquiry.Kind.QUOTE and request.method == 'GET' else None
-    if variant_id:
+    variant_id = request.GET.get('variant', '') if kind == Inquiry.Kind.QUOTE and request.method == 'GET' else ''
+    if variant_id and variant_id.isdigit() and len(variant_id) <= 18:
         selected_variant = get_object_or_404(
             ProductVariant.objects.select_related('product', 'manufacturer'),
             pk=variant_id,
@@ -53,7 +54,11 @@ def _inquiry_page(request, kind):
         initial=initial,
         inquiry_kind=kind,
     )
-    if request.method == 'POST' and form.is_valid():
+    throttled = request.method == 'POST' and not submission_allowed(request, f'inquiry-{kind}')
+    if throttled:
+        form.is_valid()
+        form.add_error(None, 'تعداد ارسال‌های شما در چند دقیقهٔ اخیر زیاد بوده است؛ کمی بعد دوباره تلاش کنید.')
+    elif request.method == 'POST' and form.is_valid():
         inquiry = form.save(commit=False)
         inquiry.kind = kind
         inquiry.source_path = request.get_full_path()[:255]

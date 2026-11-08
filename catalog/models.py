@@ -36,6 +36,40 @@ class Category(models.Model):
     def get_absolute_url(self):
         return reverse('catalog:category_detail', kwargs={'slug': self.slug})
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+
+        cache.delete('ariaa:category-roots')
+
+    def descendant_ids(self, include_self=True):
+        """Return ids of active descendants using one query per tree level."""
+        ids = [self.pk] if include_self else []
+        frontier = [self.pk]
+        seen = {self.pk}
+        for _ in range(8):
+            children = [
+                pk for pk in type(self).objects.filter(parent_id__in=frontier, is_active=True).values_list('pk', flat=True)
+                if pk not in seen
+            ]
+            if not children:
+                break
+            seen.update(children)
+            ids.extend(children)
+            frontier = children
+        return ids
+
+    def ancestors(self):
+        """Return the chain of parents from the root down to (excluding) self."""
+        chain = []
+        cursor = self.parent
+        seen = {self.pk}
+        while cursor is not None and cursor.pk not in seen and len(chain) < 8:
+            chain.append(cursor)
+            seen.add(cursor.pk)
+            cursor = cursor.parent
+        return list(reversed(chain))
+
 
 class Manufacturer(models.Model):
     name = models.CharField('نام کارخانه', max_length=140, unique=True)

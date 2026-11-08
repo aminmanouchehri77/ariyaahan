@@ -14,4 +14,8 @@ urlpatterns = [
     path('preinvoice/<uuid:public_id>/accept/send-code/', views.request_preinvoice_acceptance_code, name='preinvoice_acceptance_code'),
     path('preinvoice/<uuid:public_id>/accept/', views.accept_preinvoice_quote, name='preinvoice_accept'),
     path('preinvoice/<uuid:public_id>/', views.preinvoice_detail, name='preinvoice_detail'),
+    path('account/orders/<uuid:public_id>/', views.order_detail, name='order_detail'),
+    path('account/orders/<uuid:public_id>/pay/', views.order_pay, name='order_pay'),
+    path('payment/sep/callback/', views.sep_callback, name='sep_callback'),
+    path('payment/result/<uuid:key>/', views.payment_result, name='payment_result'),
 ]

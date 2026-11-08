@@ -1,15 +1,35 @@
 {% extends 'base.html' %}
-{% block title %}دسته‌بندی قیمت آهن‌آلات | آهن‌آلات آریا{% endblock %}
-{% block meta_description %}همهٔ دسته‌بندی‌های محصولات فولادی آریا؛ میلگرد، تیرآهن، ورق، لوله، پروفیل، شمش و محصولات مفتولی.{% endblock %}
+{% load ariaa_tags %}
+{% block title %}قیمت روز آهن‌آلات | همهٔ دسته‌بندی‌ها | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}فهرست کامل محصولات فولادی آریا؛ قیمت روز میلگرد، تیرآهن، ورق، لوله، قوطی و پروفیل، نبشی و ناودانی، محصولات مفتولی، شمش و مواد اولیه.{% endblock %}
 {% block structured_data %}<script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>دسته‌بندی کالا</span></nav><p class="eyebrow eyebrow--dark">کاتالوگ فولاد</p><h1>دسته‌بندی محصولات</h1><p>از خانوادهٔ کالا شروع کنید؛ مشخصات و گونه‌های قابل عرضه را در صفحهٔ هر دسته ببینید.</p></div></section>
-<section class="section content-section"><div class="container">
-  {% if categories %}<div class="category-grid category-grid--page">
-    {% for category in categories %}
-    <a class="category-card" href="{{ category.get_absolute_url }}"><span class="category-card__mark" aria-hidden="true">{{ category.icon_key|slice:':2'|upper }}</span><span class="category-card__body"><strong>{{ category.name }}</strong><span>{{ category.description|default:'مشاهدهٔ محصولات و مشخصات' }}</span><small>رفتن به دسته <b aria-hidden="true">←</b></small></span></a>
-    {% endfor %}
-  </div>{% else %}<div class="empty-state"><strong>دسته‌ای برای نمایش ثبت نشده</strong><p>دسته‌های کالا را از پنل مدیریت اضافه کنید.</p></div>{% endif %}
-</div></section>
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>محصولات</span></nav>
+    <p class="eyebrow">کاتالوگ فولاد آریا</p>
+    <h1>قیمت روز آهن‌آلات</h1>
+    <p>از گروه کالا شروع کنید؛ در هر گروه قیمت، کارخانه، سایز، استاندارد و محل تحویل را کنار هم ببینید و فیلتر کنید.</p>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container">
+    {% if categories %}
+    <div class="category-grid category-grid--page">
+      {% for category in categories %}
+      <div class="category-card" data-tilt data-reveal style="--reveal-delay: {% widthratio forloop.counter0 1 50 %}ms">
+        <a class="category-card__media" href="{{ category.get_absolute_url }}" tabindex="-1" aria-hidden="true"><img src="{% steel_image category 'sm' %}" alt="" width="480" height="360" loading="lazy" decoding="async"></a>
+        <div class="category-card__body">
+          <a href="{{ category.get_absolute_url }}"><strong>{{ category.name }}</strong></a>
+          <span>{{ category.description|default:'مشاهدهٔ محصولات و مشخصات' }}</span>
+          {% if category.active_children %}<span class="subcat-links">{% for child in category.active_children|slice:':6' %}<a href="{{ child.get_absolute_url }}">{{ child.name }}</a>{% endfor %}</span>{% endif %}
+          <a class="category-card__foot" href="{{ category.get_absolute_url }}"><span>قیمت همهٔ {{ category.name }}</span><span class="category-card__go">{% icon 'arrow-left' 'i--sm' %}</span></a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<div class="empty-state"><span class="empty-state__icon">{% icon 'layers' %}</span><strong>دسته‌ای برای نمایش ثبت نشده</strong><p>دسته‌های کالا را از پنل مدیریت اضافه کنید.</p></div>{% endif %}
+  </div>
+</section>
 {% include 'catalog/_recently_viewed.html' %}
 {% endblock %}

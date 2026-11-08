@@ -1,2 +1,18 @@
-<!doctype html>
-<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>صفحه پیدا نشد | آهن‌آلات آریا</title><style>body{margin:0;background:#f5f7f9;color:#243247;font:16px/2 sans-serif}.box{max-width:620px;margin:12vh auto;padding:2rem;background:white;border:1px solid #dfe5eb;border-radius:18px;text-align:center}a{display:inline-block;padding:.65rem 1rem;background:#14273f;color:white;border-radius:9px;text-decoration:none}</style></head><body><main class="box"><p>خطای ۴۰۴</p><h1>این صفحه پیدا نشد</h1><p>نشانی را بررسی کنید یا به صفحهٔ اصلی برگردید.</p><a href="/">رفتن به صفحهٔ اصلی</a></main></body></html>
+{% extends 'base.html' %}
+{% load static ariaa_tags %}
+{% block title %}صفحه پیدا نشد | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero" style="min-height:62vh;display:grid;align-items:center">
+  <div class="container page-hero__grid page-hero__grid--art">
+    <div>
+      <p class="eyebrow">خطای ۴۰۴</p>
+      <h1>این صفحه پیدا نشد</h1>
+      <p>ممکن است نشانی تغییر کرده باشد یا کالا دیگر عرضه نشود. از جست‌وجو یا فهرست قیمت‌ها استفاده کنید.</p>
+      <form class="hero-search" action="{% url 'core:search' %}" method="get" role="search" style="max-width:560px;margin-top:22px">{% icon 'search' %}<label class="visually-hidden" for="q404">جست‌وجو</label><input id="q404" type="search" name="q" placeholder="نام کالا یا سایز"><button type="submit">جست‌وجو</button></form>
+      <div class="hero__ctas"><a class="button button--gold" href="{% url 'catalog:category_list' %}">{% icon 'chart-line' %} قیمت روز آهن‌آلات</a><a class="button button--ghost-light" href="{% url 'core:home' %}">{% icon 'house' %} صفحهٔ اصلی</a></div>
+    </div>
+    <div class="page-hero__art" aria-hidden="true"><img src="{% static 'core/img/products/angles-channels.webp' %}" alt="" width="960" height="720"></div>
+  </div>
+</section>
+{% endblock %}

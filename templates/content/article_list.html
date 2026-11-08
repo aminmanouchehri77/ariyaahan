@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}{% if selected_tag %}{{ selected_tag.name }} | {% endif %}مجلهٔ آهن‌آلات آریا{% endblock %}
 {% block meta_description %}راهنماها و تحلیل‌های منتشرشده دربارهٔ محصولات و بازار فولاد.{% endblock %}
 {% block structured_data %}<script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>{% endblock %}
@@ -6,7 +7,7 @@
 <section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>مجله</span></nav><p class="eyebrow eyebrow--dark">دانش فولاد</p><h1>{% if selected_tag %}مقاله‌های «{{ selected_tag.name }}»{% else %}مجلهٔ آهن‌آلات آریا{% endif %}</h1><p>مقاله‌ها پس از بازبینی تحریریه در این فهرست منتشر می‌شوند.</p></div></section>
 <section class="section content-section"><div class="container">
   {% if tags %}<nav class="tag-list" aria-label="فیلتر دستهٔ مقاله"><a href="{% url 'content:article_list' %}">همه</a>{% for tag in tags %}<a href="?tag={{ tag.slug }}">{{ tag.name }}</a>{% endfor %}</nav>{% endif %}
-  {% if articles %}<div class="result-list">{% for article in articles %}<article class="result-card">{% if article.cover_image_url %}<img src="{{ article.cover_image_url }}" alt="" loading="lazy" width="120" height="80">{% endif %}<span><strong>{{ article.title }}</strong><small>{{ article.excerpt }}</small><small>{{ article.published_at|date:'Y/m/d' }}{% if article.author_name %} · {{ article.author_name }}{% endif %}</small></span><a href="{{ article.get_absolute_url }}">خواندن</a></article>{% endfor %}</div>
+  {% if articles %}<div class="result-list">{% for article in articles %}<article class="result-card">{% if article.cover_image_url %}<img src="{{ article.cover_image_url }}" alt="" loading="lazy" width="120" height="80">{% endif %}<span><strong>{{ article.title }}</strong><small>{{ article.excerpt }}</small><small>{{ article.published_at|jalali_date }}{% if article.author_name %} · {{ article.author_name }}{% endif %}</small></span><a href="{{ article.get_absolute_url }}">خواندن</a></article>{% endfor %}</div>
   {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌های مقاله">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if selected_tag %}&tag={{ selected_tag.slug }}{% endif %}">قبلی</a>{% endif %}<span>صفحهٔ {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if selected_tag %}&tag={{ selected_tag.slug }}{% endif %}">بعدی</a>{% endif %}</nav>{% endif %}
   {% else %}<div class="empty-state"><strong>مقالهٔ منتشرشده‌ای وجود ندارد</strong><p>محتوای واقعی را در پنل مدیریت ثبت و پس از بازبینی منتشر کنید.</p></div>{% endif %}
 </div></section>

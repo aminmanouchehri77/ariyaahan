@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}حساب کاربری | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}اطلاعات حساب، نشانی‌ها و اعلان‌های مشتری در آهن‌آلات آریا.{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
@@ -34,7 +35,7 @@
   <div class="inquiry-form account-card">
     <div class="section-heading section-heading--compact"><h2>اعلان‌های اخیر</h2>{% if unread_count %}<span>{{ unread_count }} خوانده‌نشده</span>{% endif %}</div>
     {% if notifications %}
-      <ul class="account-notifications">{% for notification in notifications %}<li{% if not notification.is_read %} class="is-unread"{% endif %}><strong>{{ notification.title }}</strong><p>{{ notification.body }}</p><small>{{ notification.created_at|date:'Y/m/d H:i' }}</small>{% if notification.target_url %}<form method="post" action="{% url 'accounts:notification_open' notification.id %}">{% csrf_token %}<button class="text-link" type="submit">مشاهده</button></form>{% endif %}</li>{% endfor %}</ul>
+      <ul class="account-notifications">{% for notification in notifications %}<li{% if not notification.is_read %} class="is-unread"{% endif %}><strong>{{ notification.title }}</strong><p>{{ notification.body }}</p><small>{{ notification.created_at|jalali_datetime }}</small>{% if notification.target_url %}<form method="post" action="{% url 'accounts:notification_open' notification.id %}">{% csrf_token %}<button class="text-link" type="submit">مشاهده</button></form>{% endif %}</li>{% endfor %}</ul>
       {% if unread_count %}<form method="post" action="{% url 'accounts:notifications_read' %}">{% csrf_token %}<button class="text-link" type="submit">همه را خوانده‌شده علامت بزن</button></form>{% endif %}
     {% else %}<p>هنوز اعلانی ندارید.</p>{% endif %}
     <a class="text-link" href="{% url 'accounts:notifications' %}">مشاهدهٔ همهٔ اعلان‌ها</a>

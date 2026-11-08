@@ -3,6 +3,8 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 
 from .models import Order, OrderItem, OrderStatusEvent, PaymentRecord, PreInvoice, PreInvoiceItem
+from .payment_services import PaymentStateConflict, reverse_payment, verify_payment
+from .sep import SEPError
 from .services import convert_preinvoice_to_order, issue_preinvoice_quote
 
 
@@ -142,6 +144,17 @@ class OrderAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     ordering = ('-created_at',)
     inlines = (OrderItemInline,)
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = tuple(self.readonly_fields)
+        # The gateway amount is derived from shipping + lines. Freeze shipping as
+        # soon as the order leaves awaiting_payment or a payment attempt exists.
+        if obj is not None and (
+            obj.status != Order.Status.AWAITING_PAYMENT
+            or obj.payments.exclude(status__in=(PaymentRecord.Status.FAILED, PaymentRecord.Status.CANCELLED)).exists()
+        ):
+            fields += ('shipping_amount',)
+        return fields
     actions = (
         _transition_action(Order.Status.PROCESSING, 'شروع آماده‌سازی سفارش‌های پرداخت‌شده'),
         _transition_action(Order.Status.SHIPPED, 'ثبت ارسال سفارش‌های آماده'),
@@ -171,17 +184,45 @@ class OrderStatusEventAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.action(description='استعلام دوبارهٔ تراکنش از سپ (Verify) — حداکثر تا ۳۰ دقیقه پس از پرداخت')
+def reverify_payments(modeladmin, request, queryset):
+    done = 0
+    for payment in queryset.filter(provider='sep', status=PaymentRecord.Status.REQUIRES_REVIEW).exclude(ref_num=None):
+        try:
+            result = verify_payment(payment.pk)
+        except SEPError as error:
+            modeladmin.message_user(request, f'تراکنش #{payment.pk}: {error}', level=messages.WARNING)
+            continue
+        done += 1
+        modeladmin.message_user(request, f'تراکنش #{payment.pk}: {result.get_status_display()}')
+    if not done:
+        modeladmin.message_user(request, 'تراکنش «نیازمند بررسی» دارای RefNum انتخاب نشده بود.', level=messages.WARNING)
+
+
+@admin.action(description='برگشت وجه (Reverse) تراکنش‌های تأییدنشده در سفارش')
+def reverse_payments(modeladmin, request, queryset):
+    for payment in queryset.filter(provider='sep').exclude(ref_num=None):
+        try:
+            result = reverse_payment(payment.pk, reason=f'Reversed by {request.user.get_username()}.')
+        except (PaymentStateConflict, SEPError) as error:
+            modeladmin.message_user(request, f'تراکنش #{payment.pk}: {error}', level=messages.WARNING)
+        else:
+            modeladmin.message_user(request, f'تراکنش #{payment.pk}: {result.get_status_display()}')
+
+
 @admin.register(PaymentRecord)
 class PaymentRecordAdmin(admin.ModelAdmin):
-    list_display = ('initiated_at', 'order', 'amount', 'currency', 'provider', 'status', 'reference', 'verified_at')
+    list_display = ('initiated_at', 'order', 'amount', 'currency', 'amount_rial', 'provider', 'status', 'ref_num', 'trace_no', 'verified_at')
     list_filter = ('status', 'provider', 'currency', 'initiated_at')
-    search_fields = ('order__public_id', 'reference', 'idempotency_key')
+    search_fields = ('order__public_id', 'reference', 'ref_num', 'trace_no', 'rrn', 'idempotency_key')
     readonly_fields = tuple(field.name for field in PaymentRecord._meta.fields)
-
-    def has_add_permission(self, request):
-        return False
+    actions = (reverify_payments, reverse_payments)
 
     def has_change_permission(self, request, obj=None):
+        # Read-only detail view; actions use the change permission on the list.
+        return obj is None and super().has_change_permission(request, obj)
+
+    def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):

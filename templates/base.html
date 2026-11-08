@@ -1,18 +1,26 @@
-{% load static %}
-<!doctype html>
+{% load static ariaa_tags %}<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#14273f">
-  <meta name="description" content="{% block meta_description %}کاتالوگ و قیمت آهن‌آلات آریا؛ انتخاب دقیق کالا با مشخصات فنی و قیمت قابل پیگیری.{% endblock %}">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111316">
+  <meta name="description" content="{% block meta_description %}آهن‌آلات آریا؛ قیمت روز میلگرد، تیرآهن، ورق، لوله و پروفیل با زمان ثبت، محل تحویل و مسیر روشن از استعلام تا پرداخت امن.{% endblock %}">
   <meta name="robots" content="{% block robots_meta %}index, follow{% endblock %}">
+  {% if trust_seals.enamad_meta %}<meta name="enamad" content="{{ trust_seals.enamad_meta }}">{% endif %}
   <link rel="canonical" href="{% block canonical_url %}{{ canonical_origin }}{{ request.path }}{% endblock %}">
   <link rel="manifest" href="{% static 'core/manifest.webmanifest' %}">
+  <link rel="icon" type="image/svg+xml" href="{% static 'core/brand/emblem.svg' %}">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'core/icons/icon-192.png' %}">
-  <link rel="apple-touch-icon" href="{% static 'core/icons/icon-192.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'core/icons/apple-touch-icon.png' %}">
+  <link rel="preload" href="{% static 'core/fonts/vazirmatn-var.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'core/css/site.css' %}">
-  <title>{% block title %}آهن‌آلات آریا | بازار آهن با اطلاعات شفاف{% endblock %}</title>
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fa_IR">
+  <meta property="og:site_name" content="آهن‌آلات آریا">
+  <meta property="og:title" content="{% block og_title %}آهن‌آلات آریا | قیمت روز و خرید مطمئن آهن‌آلات{% endblock %}">
+  <meta property="og:image" content="{{ canonical_origin }}{% static 'core/img/hero/hero.webp' %}">
+  <title>{% block title %}آهن‌آلات آریا | قیمت روز و خرید مطمئن آهن‌آلات{% endblock %}</title>
+  <script>document.documentElement.classList.add('js');</script>
   {% block extra_head %}{% endblock %}
   {% block structured_data %}{% endblock %}
   <script type="application/ld+json">
@@ -22,16 +30,16 @@
         {
           "@type": "Organization",
           "name": "آهن‌آلات آریا",
-          "url": "{{ request.scheme }}://{{ request.get_host }}/",
-          "logo": "{{ request.scheme }}://{{ request.get_host }}{% static 'core/icons/icon-512.png' %}"
+          "url": "{{ canonical_origin }}/",
+          "logo": "{{ canonical_origin }}{% static 'core/icons/icon-512.png' %}"
         },
         {
           "@type": "WebSite",
           "name": "آهن‌آلات آریا",
-          "url": "{{ request.scheme }}://{{ request.get_host }}/",
+          "url": "{{ canonical_origin }}/",
           "potentialAction": {
             "@type": "SearchAction",
-            "target": "{{ request.scheme }}://{{ request.get_host }}{% url 'core:search' %}?q={search_term_string}",
+            "target": "{{ canonical_origin }}{% url 'core:search' %}?q={search_term_string}",
             "query-input": "required name=search_term_string"
           }
         }
@@ -41,118 +49,191 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main-content">رفتن به محتوای اصلی</a>
-  <div class="topline">
-    <div class="container topline__inner{% if company_contact_details.phone %} topline__inner--contact{% endif %}">
-      <span class="topline__message"><span class="status-dot"></span> قیمت هر کالا همراه با واحد و زمان ثبت نمایش داده می‌شود</span>
-      {% if company_contact_details.phone %}<a class="topline__contact" href="tel:{{ company_contact_details.phone_uri }}" dir="ltr"><span dir="rtl">تماس با آریا</span> {{ company_contact_details.phone }}</a>{% else %}<span class="topline__note">مرجع اطلاعات محصولات فولادی</span>{% endif %}
+
+  <div class="ticker" aria-label="آخرین تغییرهای قیمت">
+    <div class="container ticker__inner">
+      <span class="ticker__label"><span class="live-dot" aria-hidden="true"></span>بازار آهن</span>
+      <div class="ticker__viewport">
+        {% if market_ticker %}
+          <div class="ticker__track">{% for copy in '12' %}<div class="ticker__group"{% if forloop.last %} aria-hidden="true"{% endif %}>
+            {% for item in market_ticker %}
+              <a class="ticker__item" href="{{ item.get_absolute_url }}">
+                <b>{{ item.variant.product.name }}</b> {{ item.variant.name }}
+                <span class="{% if item.trend == 'rising' %}up{% elif item.trend == 'falling' %}down{% endif %}">{% if item.trend == 'rising' %}▲{% elif item.trend == 'falling' %}▼{% else %}●{% endif %} {{ item.change_percent|percent_fa }}</span>
+                <span>{{ item.current_amount|money:item.currency }}</span>
+              </a>
+            {% endfor %}
+          </div>{% endfor %}</div>
+        {% else %}
+          <span class="ticker__static">قیمت هر کالا با واحد، محل تحویل و زمان ثبت نمایش داده می‌شود.</span>
+        {% endif %}
+      </div>
+      {% if company_contact_details.phone %}<a class="ticker__contact" href="tel:{{ company_contact_details.phone_uri }}">{% icon 'phone' 'i--sm' %}<span dir="ltr">{{ company_contact_details.phone }}</span></a>{% endif %}
     </div>
   </div>
 
-  <header class="site-header">
+  <header class="site-header" data-site-header>
     <div class="container header-main">
-      <a class="brand" href="{% url 'core:home' %}" aria-label="صفحهٔ اصلی آهن‌آلات آریا">
-        <span class="brand__mark" aria-hidden="true"><span>آ</span></span>
-        <span class="brand__text"><strong>آهن‌آلات آریا</strong><small>همراه مطمئن صنعت فولاد</small></span>
+      <a class="brand" href="{% url 'core:home' %}" aria-label="آهن‌آلات آریا — صفحهٔ اصلی">
+        <img class="brand__mark" src="{% static 'core/brand/emblem.svg' %}" alt="" width="44" height="44">
+        <span class="brand__text"><strong>آهن‌آلات آریا</strong><small>ARIA STEEL</small></span>
       </a>
 
       <form class="search-form" action="{% url 'core:search' %}" method="get" role="search">
         <label class="visually-hidden" for="site-search">جست‌وجوی کالا، سایز یا کارخانه</label>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
-        <input id="site-search" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="مثلاً میلگرد ۱۲، ورق ST52 یا کارخانه…" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" aria-expanded="false" data-suggestions-url="{% url 'core:search_suggestions' %}">
+        {% icon 'search' %}
+        <input id="site-search" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="جست‌وجو: میلگرد ۱۲، تیرآهن ۱۴، ورق ST37…" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" aria-expanded="false" data-suggestions-url="{% url 'core:search_suggestions' %}">
         <button type="submit">جست‌وجو</button>
         <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="پیشنهادهای جست‌وجو" hidden></div>
       </form>
 
       <div class="header-actions">
-        <a class="header-link" href="{% url 'catalog:category_list' %}">
-          <span class="header-link__icon" aria-hidden="true">≡</span>
-          <span><small>مشاهدهٔ</small><strong>قیمت‌ها</strong></span>
-        </a>
-        <a class="header-link header-link--cart" href="{% url 'orders:cart' %}">
-          <span class="header-link__icon" aria-hidden="true">▣</span>
-          <span><small>سبد</small><strong>پیش‌فاکتور</strong></span>
-        </a>
-        <a class="header-link header-link--account" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">
-          <span class="header-link__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"></circle><path d="M5 20c.8-3.5 3.2-5.3 7-5.3s6.2 1.8 7 5.3"></path></svg></span>
-          <span><small>{% if request.user.is_authenticated %}حساب{% else %}مشتریان{% endif %}</small><strong>{% if request.user.is_authenticated %}حساب من{% else %}ورود{% endif %}</strong></span>
-        </a>
-        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
-          <span class="menu-toggle__icon" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="visually-hidden">باز کردن منو</span>
-        </button>
+        <button class="header-link search-toggle" type="button" aria-expanded="false" aria-controls="mobile-search" data-search-toggle>{% icon 'search' %}<span class="visually-hidden">جست‌وجو</span></button>
+        {% if company_contact_details.phone %}<a class="header-link header-link--phone" href="tel:{{ company_contact_details.phone_uri }}">{% icon 'headset' %}<span class="header-link__text"><small>مشاورهٔ خرید</small><strong dir="ltr">{{ company_contact_details.phone }}</strong></span></a>{% endif %}
+        <a class="header-link header-link--account" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'user' %}<span class="header-link__text"><small>{% if request.user.is_authenticated %}خوش آمدید{% else %}مشتریان{% endif %}</small><strong>{% if request.user.is_authenticated %}حساب من{% else %}ورود / ثبت‌نام{% endif %}</strong></span></a>
+        <a class="header-link" href="{% url 'orders:cart' %}" aria-label="سبد پیش‌فاکتور{% if cart_count %}، {{ cart_count }} قلم{% endif %}">{% icon 'clipboard-list' %}{% if cart_count %}<span class="header-link__badge">{{ cart_count|fa_digits }}</span>{% endif %}<span class="header-link__text"><small>سبد</small><strong>پیش‌فاکتور</strong></span></a>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" data-menu-toggle>{% icon 'menu' 'i-open' %}{% icon 'x' 'i-close' %}<span class="visually-hidden">منوی اصلی</span></button>
       </div>
+    </div>
+    <div class="mobile-search" id="mobile-search">
+      <form class="search-form" action="{% url 'core:search' %}" method="get" role="search">
+        <label class="visually-hidden" for="mobile-search-input">جست‌وجوی کالا</label>
+        {% icon 'search' %}
+        <input id="mobile-search-input" type="search" name="q" placeholder="نام کالا، سایز یا کارخانه" autocomplete="off">
+        <button type="submit">بگرد</button>
+      </form>
     </div>
 
     <nav class="primary-nav" id="primary-nav" aria-label="ناوبری اصلی">
+      <div class="primary-nav__head">
+        <a class="brand" href="{% url 'core:home' %}"><img class="brand__mark" src="{% static 'core/brand/emblem.svg' %}" alt="" width="40" height="40"><span class="brand__text"><strong>آهن‌آلات آریا</strong></span></a>
+        <button class="menu-toggle" type="button" data-menu-close>{% icon 'x' %}<span class="visually-hidden">بستن منو</span></button>
+      </div>
       <div class="container primary-nav__inner">
-        <a class="nav-home" href="{% url 'core:home' %}">خانه</a>
-        <a href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% if request.user.is_authenticated %}حساب کاربری{% else %}ورود / ثبت‌نام{% endif %}</a>
-        <a href="{% url 'catalog:category_list' %}">دسته‌بندی کالا</a>
-        <a href="{% url 'marketplace:sell' %}">تالار عرضه</a>
-        <a href="{% url 'marketplace:buy' %}">تالار تقاضا</a>
-        <a href="{% url 'orders:cart' %}">سبد پیش‌فاکتور</a>
-        {% for category in navigation_categories %}
-          <a href="{{ category.get_absolute_url }}">{{ category.name }}</a>
+        <div class="nav-item"><a class="nav-link" href="{% url 'catalog:category_list' %}"{% if request.path == '/steel/' %} aria-current="page"{% endif %}>{% icon 'layers' 'i--sm' %} همهٔ محصولات</a></div>
+        {% for category in navigation_categories|slice:':6' %}
+          <div class="nav-item">
+            <a class="nav-link" href="{{ category.get_absolute_url }}"{% if request.path == category.get_absolute_url %} aria-current="page"{% endif %}>{{ category.name }}{% if category.active_children %} {% icon 'chevron-down' 'i--sm' %}{% endif %}</a>
+            {% if category.active_children %}
+              <div class="mega">
+                <div class="mega__links">
+                  <div class="mega__title"><strong>{{ category.name }}</strong><a class="text-link" href="{{ category.get_absolute_url }}">قیمت همهٔ {{ category.name }} {% icon 'arrow-left' 'i--sm' %}</a></div>
+                  {% for child in category.active_children %}<a href="{{ child.get_absolute_url }}">{{ child.name }} {% icon 'chevron-left' 'i--sm' %}</a>{% endfor %}
+                </div>
+                <a class="mega__art" href="{{ category.get_absolute_url }}"><img src="{% steel_image category 'sm' %}" alt="" loading="lazy" width="480" height="360"><span>{{ category.description|default:'مشاهدهٔ قیمت و مشخصات' }}</span><strong>قیمت روز {{ category.name }}</strong></a>
+              </div>
+            {% endif %}
+          </div>
         {% endfor %}
         <span class="nav-spacer"></span>
-        <span class="nav-caption">آهن، انتخاب دقیق می‌خواهد</span>
+        <div class="nav-item nav-item--wide"><a class="nav-link" href="{% url 'content:market_news_list' %}">{% icon 'trending-up' 'i--sm' %} اخبار قیمت</a></div>
+        <div class="nav-item"><a class="nav-link" href="{% url 'marketplace:sell' %}">{% icon 'store' 'i--sm' %} تالارها</a></div>
+        <div class="nav-item nav-item--wide"><a class="nav-link" href="{% url 'content:article_list' %}">{% icon 'book-open' 'i--sm' %} مجله</a></div>
+        <div class="nav-item"><a class="nav-link nav-link--accent" href="{% url 'inquiries:quote' %}">{% icon 'zap' 'i--sm' %} استعلام سریع</a></div>
+        <div class="nav-drawer-contact">
+          <a class="button button--gold button--full" href="{% url 'inquiries:quote' %}">{% icon 'receipt' %} درخواست پیش‌فاکتور</a>
+          <a class="button button--ghost-light button--full" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'user' %} {% if request.user.is_authenticated %}حساب من{% else %}ورود / ثبت‌نام{% endif %}</a>
+          {% if company_contact_details.phone %}<a class="button button--ghost-light button--full" href="tel:{{ company_contact_details.phone_uri }}">{% icon 'phone' %} <span dir="ltr">{{ company_contact_details.phone }}</span></a>{% endif %}
+          <a class="button button--ghost-light button--full" href="{% url 'core:weight_calculator' %}">{% icon 'calculator' %} محاسبه‌گر وزن</a>
+        </div>
       </div>
     </nav>
   </header>
 
-  {% if messages %}<div class="container flash-stack" aria-live="polite">{% for message in messages %}<div class="flash flash--{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+  {% if messages %}<div class="container flash-stack" aria-live="polite">{% for message in messages %}<div class="flash flash--{{ message.tags|default:'info' }}" role="status">{% if message.tags == 'success' %}{% icon 'circle-check' %}{% elif message.tags == 'error' %}{% icon 'triangle-alert' %}{% else %}{% icon 'info' %}{% endif %}<span>{{ message }}</span></div>{% endfor %}</div>{% endif %}
+
   <main id="main-content">
     {% block content %}{% endblock %}
   </main>
 
   <footer class="site-footer">
+    {% block footer_cta %}<div class="container footer-cta">
+      <div><h2>برای پروژه‌تان قیمت دقیق می‌خواهید؟</h2><p>فهرست اقلام را بفرستید؛ کارشناسان آریا با قیمت روز، موجودی انبار و هزینهٔ حمل پیش‌فاکتور صادر می‌کنند.</p></div>
+      <div class="closing-cta__actions"><a class="button button--gold" href="{% url 'inquiries:quote' %}">{% icon 'receipt' %} ثبت استعلام</a>{% if company_contact_details.phone %}<a class="button button--ghost-light" href="tel:{{ company_contact_details.phone_uri }}">{% icon 'phone' %} تماس</a>{% endif %}</div>
+    </div>{% endblock %}
     <div class="container footer-main">
       <div class="footer-brand">
         <a class="brand brand--light" href="{% url 'core:home' %}">
-          <span class="brand__mark" aria-hidden="true"><span>آ</span></span>
-          <span class="brand__text"><strong>آهن‌آلات آریا</strong><small>اطلاعات روشن برای انتخاب مطمئن</small></span>
+          <img class="brand__mark" src="{% static 'core/brand/emblem.svg' %}" alt="" width="44" height="44">
+          <span class="brand__text"><strong>آهن‌آلات آریا</strong><small>ARIA STEEL</small></span>
         </a>
-        <p>کاتالوگ محصولات فولادی با مشخصات فنی، قیمت زمان‌دار و مسیر استعلام روشن.</p>
+        <p>مرجع قیمت و تأمین آهن‌آلات ساختمانی و صنعتی؛ قیمت با زمان ثبت و محل تحویل، پیش‌فاکتور رسمی و پرداخت امن.</p>
         {% if company_contact_details.has_public_details %}
           <div class="footer-contact" aria-label="اطلاعات تماس شرکت">
-            {% if company_contact_details.phone %}<a href="tel:{{ company_contact_details.phone_uri }}" dir="ltr">{{ company_contact_details.phone }}</a>{% endif %}
-            {% if company_contact_details.alternate_phone %}<a href="tel:{{ company_contact_details.alternate_phone_uri }}" dir="ltr">{{ company_contact_details.alternate_phone }}</a>{% endif %}
-            {% if company_contact_details.email %}<a href="mailto:{{ company_contact_details.email }}" dir="ltr">{{ company_contact_details.email }}</a>{% endif %}
-            {% if company_contact_details.office_hours %}<span>ساعات پاسخ‌گویی: {{ company_contact_details.office_hours }}</span>{% endif %}
-            {% if company_contact_details.address %}<span>{{ company_contact_details.address|linebreaksbr }}</span>{% endif %}
-            {% if company_contact_details.map_url %}<a href="{{ company_contact_details.map_url }}" target="_blank" rel="noopener noreferrer">نشانی روی نقشه</a>{% endif %}
-            {% if company_contact_details.whatsapp_url %}<a href="{{ company_contact_details.whatsapp_url }}" target="_blank" rel="noopener noreferrer">واتس‌اپ</a>{% endif %}
-            {% if company_contact_details.telegram_url %}<a href="{{ company_contact_details.telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>{% endif %}
-            {% if company_contact_details.instagram_url %}<a href="{{ company_contact_details.instagram_url }}" target="_blank" rel="noopener noreferrer">اینستاگرام</a>{% endif %}
-            {% if company_contact_details.linkedin_url %}<a href="{{ company_contact_details.linkedin_url }}" target="_blank" rel="noopener noreferrer">لینکدین</a>{% endif %}
+            {% if company_contact_details.phone %}<a href="tel:{{ company_contact_details.phone_uri }}">{% icon 'phone' 'i--sm' %}<span dir="ltr">{{ company_contact_details.phone }}</span></a>{% endif %}
+            {% if company_contact_details.alternate_phone %}<a href="tel:{{ company_contact_details.alternate_phone_uri }}">{% icon 'phone' 'i--sm' %}<span dir="ltr">{{ company_contact_details.alternate_phone }}</span></a>{% endif %}
+            {% if company_contact_details.email %}<a href="mailto:{{ company_contact_details.email }}">{% icon 'mail' 'i--sm' %}<span dir="ltr">{{ company_contact_details.email }}</span></a>{% endif %}
+            {% if company_contact_details.office_hours %}<span>{% icon 'clock' 'i--sm' %}{{ company_contact_details.office_hours }}</span>{% endif %}
+            {% if company_contact_details.address %}<span>{% icon 'map-pin' 'i--sm' %}<span>{{ company_contact_details.address|linebreaksbr }}</span></span>{% endif %}
+          </div>
+          <div class="socials">
+            {% if company_contact_details.telegram_url %}<a href="{{ company_contact_details.telegram_url }}" target="_blank" rel="noopener noreferrer" aria-label="تلگرام">{% icon 'send' %}</a>{% endif %}
+            {% if company_contact_details.whatsapp_url %}<a href="{{ company_contact_details.whatsapp_url }}" target="_blank" rel="noopener noreferrer" aria-label="واتس‌اپ">{% icon 'message-circle' %}</a>{% endif %}
+            {% if company_contact_details.instagram_url %}<a href="{{ company_contact_details.instagram_url }}" target="_blank" rel="noopener noreferrer" aria-label="اینستاگرام">{% icon 'instagram' %}</a>{% endif %}
+            {% if company_contact_details.linkedin_url %}<a href="{{ company_contact_details.linkedin_url }}" target="_blank" rel="noopener noreferrer" aria-label="لینکدین">{% icon 'linkedin' %}</a>{% endif %}
+            {% if company_contact_details.map_url %}<a href="{{ company_contact_details.map_url }}" target="_blank" rel="noopener noreferrer" aria-label="نشانی روی نقشه">{% icon 'map' %}</a>{% endif %}
           </div>
         {% endif %}
       </div>
-      <div class="footer-links">
-        <h2>دسترسی سریع</h2>
-        <a href="{% url 'catalog:category_list' %}">همهٔ دسته‌ها</a>
-        <a href="{% url 'core:search' %}">جست‌وجوی کالا</a>
-        <a href="{% url 'marketplace:sell' %}">تالار عرضه</a>
-        <a href="{% url 'marketplace:buy' %}">تالار تقاضا</a>
-        <a href="{% url 'orders:cart' %}">سبد پیش‌فاکتور</a>
-        <a href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% if request.user.is_authenticated %}حساب کاربری{% else %}ورود مشتریان{% endif %}</a>
-        <a href="{% url 'inquiries:contact' %}">تماس با ما</a>
-        <a href="{% url 'content:about' %}">دربارهٔ آریا</a>
-        <a href="{% url 'content:article_list' %}">مجلهٔ فولاد</a>
-        <a href="{% url 'content:market_news_list' %}">اخبار قیمت بازار</a>
-        <a href="{% url 'content:faq' %}">پرسش‌های متداول</a>
-        <a href="{% url 'core:weight_calculator' %}">محاسبه‌گر وزن</a>
-        <a href="{% url 'core:shipping_calculator' %}">برآورد حمل</a>
-        <a href="{% url 'admin:index' %}">ورود مدیران</a>
+      <div class="footer-col">
+        <h2>محصولات</h2>
+        <nav aria-label="دسته‌های محصول">
+          {% for category in navigation_categories %}<a href="{{ category.get_absolute_url }}">قیمت {{ category.name }}</a>{% endfor %}
+        </nav>
       </div>
-      <div class="footer-note">
-        <h2>شفافیت قیمت</h2>
-        <p>قیمت نهایی فقط پس از ثبت دادهٔ معتبر و مشخص‌شدن محل تحویل نمایش داده می‌شود.</p>
+      <div class="footer-col">
+        <h2>خدمات و ابزار</h2>
+        <nav aria-label="خدمات">
+          <a href="{% url 'inquiries:quote' %}">استعلام قیمت و پیش‌فاکتور</a>
+          <a href="{% url 'marketplace:sell' %}">تالار عرضه</a>
+          <a href="{% url 'marketplace:buy' %}">تالار تقاضا</a>
+          <a href="{% url 'content:market_news_list' %}">اخبار قیمت بازار</a>
+          <a href="{% url 'catalog:compare' %}">مقایسهٔ کالاها</a>
+          <a href="{% url 'core:weight_calculator' %}">محاسبه‌گر وزن آهن‌آلات</a>
+          <a href="{% url 'core:shipping_calculator' %}">برآورد هزینهٔ حمل</a>
+          <a href="{% if request.user.is_authenticated %}{% url 'accounts:price_alerts' %}{% else %}{% url 'accounts:login' %}{% endif %}">هشدار قیمت</a>
+        </nav>
       </div>
-      <div class="footer-install"><button id="install-app-button" class="install-app-button" type="button" hidden>نصب اپ آریا</button></div>
+      <div class="footer-col">
+        <h2>آریا</h2>
+        <nav aria-label="شرکت">
+          <a href="{% url 'content:about' %}">دربارهٔ ما</a>
+          <a href="{% url 'inquiries:contact' %}">تماس با ما</a>
+          <a href="{% url 'content:article_list' %}">مجلهٔ فولاد</a>
+          <a href="{% url 'content:faq' %}">پرسش‌های متداول</a>
+          <a href="{% url 'content:export' %}">صادرات</a>
+          <a href="{% url 'content:shipping' %}">شرایط ارسال</a>
+          <a href="{% url 'content:terms' %}">قوانین و مقررات</a>
+          <a href="{% url 'content:privacy' %}">حریم خصوصی</a>
+          <a href="{% url 'content:complaints' %}">ثبت شکایت</a>
+          <a href="{% url 'content:careers' %}">همکاری با ما</a>
+        </nav>
+        <h2 style="margin-top:22px">نمادهای اعتماد</h2>
+        <div class="footer-seals">
+          {% if trust_seals.enamad %}
+            <a class="trust-seal" referrerpolicy="origin" target="_blank" rel="noopener" href="https://trustseal.enamad.ir/?id={{ trust_seals.enamad.id|urlencode }}&amp;Code={{ trust_seals.enamad.code|urlencode }}"><img referrerpolicy="origin" src="https://trustseal.enamad.ir/logo.aspx?id={{ trust_seals.enamad.id|urlencode }}&amp;Code={{ trust_seals.enamad.code|urlencode }}" alt="نماد اعتماد الکترونیکی" loading="lazy" code="{{ trust_seals.enamad.code }}"></a>
+          {% else %}
+            <span class="trust-seal trust-seal--placeholder">{% icon 'shield-check' 'i--lg' %}جایگاه نماد اعتماد الکترونیکی</span>
+          {% endif %}
+          {% if trust_seals.samandehi %}
+            <a class="trust-seal" referrerpolicy="origin" target="_blank" rel="noopener" href="https://logo.samandehi.ir/Verify.aspx?id={{ trust_seals.samandehi.id|urlencode }}&amp;p={{ trust_seals.samandehi.code|urlencode }}"><img referrerpolicy="origin" src="https://logo.samandehi.ir/logo.aspx?id={{ trust_seals.samandehi.id|urlencode }}&amp;p={{ trust_seals.samandehi.code|urlencode }}" alt="نشان ساماندهی" loading="lazy"></a>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <div class="footer-bottom"><div class="container">© آهن‌آلات آریا — همهٔ حقوق محفوظ است.</div></div>
+    <div class="footer-bottom"><div class="container"><span>© آهن‌آلات آریا — همهٔ حقوق محفوظ است.</span><span><button id="install-app-button" class="install-app-button" type="button" hidden>{% icon 'download' 'i--sm' %} نصب اپ آریا</button> <a href="{% url 'admin:index' %}">ورود کارکنان</a></span></div></div>
   </footer>
+
+
+  <nav class="bottom-nav" aria-label="ناوبری سریع موبایل">
+    {% url 'core:home' as home_url %}{% url 'catalog:category_list' as steel_url %}{% url 'orders:cart' as cart_url %}{% url 'inquiries:quote' as quote_url %}
+    <a class="bottom-nav__item{% if request.path == home_url %} is-active{% endif %}" href="{{ home_url }}"{% if request.path == home_url %} aria-current="page"{% endif %}>{% icon 'house' %}<span>خانه</span></a>
+    <a class="bottom-nav__item{% if '/steel/' in request.path or '/product/' in request.path %} is-active{% endif %}" href="{{ steel_url }}"{% if request.path == steel_url %} aria-current="page"{% endif %}>{% icon 'layers' %}<span>محصولات</span></a>
+    <a class="bottom-nav__item bottom-nav__item--primary{% if request.path == quote_url %} is-active{% endif %}" href="{{ quote_url }}"><span class="bottom-nav__fab">{% icon 'receipt' %}</span><span>استعلام</span></a>
+    <a class="bottom-nav__item{% if '/cart/' in request.path or '/checkout/' in request.path %} is-active{% endif %}" href="{{ cart_url }}">{% icon 'clipboard-list' %}{% if cart_count %}<b class="bottom-nav__badge">{{ cart_count|fa_digits }}</b>{% endif %}<span>سبد</span></a>
+    <a class="bottom-nav__item{% if '/account/' in request.path %} is-active{% endif %}" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'user' %}<span>{% if request.user.is_authenticated %}حساب من{% else %}ورود{% endif %}</span></a>
+  </nav>
+  <button class="to-top" type="button" data-to-top aria-label="بازگشت به بالای صفحه">{% icon 'arrow-up-left' %}</button>
   <script src="{% static 'core/js/site.js' %}" defer></script>
   {% block extra_js %}{% endblock %}
 </body>

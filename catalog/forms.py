@@ -47,7 +47,7 @@ class CategoryFilterForm(forms.Form):
             is_active=True,
             variants__is_active=True,
             variants__product__is_active=True,
-            variants__product__category=category,
+            variants__product__category_id__in=category.descendant_ids(),
         ).distinct().order_by('name')
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')

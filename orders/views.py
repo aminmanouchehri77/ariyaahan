@@ -1,11 +1,14 @@
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.http import Http404
+from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST
-from urllib.parse import urlencode
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from catalog.models import ProductVariant
 from accounts.models import CustomerProfile
@@ -21,7 +24,17 @@ from accounts.sms import SMSBackendNotConfigured, SMSDeliveryFailed
 
 from .cart import Cart, CartError
 from .forms import AcceptPreInvoiceQuoteForm, CartQuantityForm, PreInvoiceForm
-from .models import PreInvoice, PreInvoiceItem
+from core.seo import canonical_url
+from core.throttle import submission_allowed
+
+from .models import Order, PaymentRecord, PreInvoice, PreInvoiceItem
+from .payment_services import (
+    PaymentUnavailable,
+    handle_sep_callback,
+    order_totals,
+    payment_block_reason,
+    start_sep_payment,
+)
 from .services import (
     build_cart_context,
     captured_quote_is_current,
@@ -434,3 +447,96 @@ def accept_preinvoice_quote(request, public_id):
         request.session.pop(PREINVOICE_ACCEPTANCE_SESSION_KEY, None)
         messages.success(request, 'پذیرش پیش‌فاکتور ثبت شد. این ثبت سفارش قطعی یا پرداخت نیست؛ کارشناس مرحلهٔ بعد را پیگیری می‌کند.')
     return redirect(detail_url)
+
+
+# ---------------------------------------------------------------------------
+# Orders and online payment (SEP)
+# ---------------------------------------------------------------------------
+
+def _customer_order_or_404(request, public_id):
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        raise Http404
+    return get_object_or_404(
+        Order.objects.prefetch_related('items', 'status_events', 'payments'),
+        public_id=public_id,
+        customer=profile,
+    )
+
+
+@login_required
+@never_cache
+@require_GET
+def order_detail(request, public_id):
+    order = _customer_order_or_404(request, public_id)
+    response = render(request, 'orders/order_detail.html', {
+        'order': order,
+        'totals': order_totals(order),
+        'payment_block_reason': payment_block_reason(order),
+        'payments': order.payments.all()[:10],
+        'status_events': order.status_events.all()[:20],
+    })
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
+
+
+@login_required
+@never_cache
+@require_POST
+def order_pay(request, public_id):
+    order = _customer_order_or_404(request, public_id)
+    detail_url = reverse('orders:order_detail', kwargs={'public_id': order.public_id})
+    reason = payment_block_reason(order)
+    if reason:
+        messages.warning(request, reason)
+        return redirect(detail_url)
+    if not submission_allowed(request, 'sep-payment', limit=10, window=600):
+        messages.warning(request, 'تعداد تلاش‌های پرداخت زیاد بوده است؛ چند دقیقهٔ دیگر دوباره تلاش کنید.')
+        return redirect(detail_url)
+    callback_url = canonical_url(request, reverse('orders:sep_callback'))
+    mobile = order.preinvoice.mobile if order.preinvoice_id else ''
+    try:
+        payment, action, fields = start_sep_payment(order.pk, callback_url=callback_url, cell_number=mobile)
+    except (PaymentUnavailable, ValidationError) as error:
+        messages.error(request, f'اتصال به درگاه انجام نشد. {error if isinstance(error, PaymentUnavailable) else ""}'.strip())
+        return redirect(detail_url)
+    response = render(request, 'orders/payment_redirect.html', {
+        'order': order,
+        'payment': payment,
+        'gateway_action': action,
+        'gateway_fields': fields,
+    })
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    response['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
+@csrf_exempt
+@never_cache
+@require_http_methods(['GET', 'POST'])
+def sep_callback(request):
+    """Bank return URL. Cross-site POST: no session, no CSRF token, untrusted data."""
+    data = request.POST if request.method == 'POST' else request.GET
+    payment = handle_sep_callback(data)
+    if payment is None:
+        return redirect('core:home')
+    return redirect('orders:payment_result', key=payment.idempotency_key)
+
+
+@never_cache
+@require_GET
+def payment_result(request, key):
+    payment = get_object_or_404(PaymentRecord.objects.select_related('order'), idempotency_key=key)
+    order_url = ''
+    if request.user.is_authenticated and payment.order.customer and payment.order.customer.user_id == request.user.pk:
+        order_url = reverse('orders:order_detail', kwargs={'public_id': payment.order.public_id})
+    response = render(request, 'orders/payment_result.html', {
+        'payment': payment,
+        'order_number': payment.order.order_number,
+        'order_url': order_url,
+    })
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    response['Referrer-Policy'] = 'no-referrer'
+    return response

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}نتیجهٔ پرداخت | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container redirect-card">
+    {% if payment.status == 'succeeded' %}
+    <div class="payment-result payment-result--ok">
+      <span class="payment-result__icon">{% icon 'check' %}</span>
+      <h1 style="font-size:1.5rem">پرداخت با موفقیت انجام شد</h1>
+      <p class="muted">سفارش <span dir="ltr">{{ order_number }}</span> پرداخت شد و برای آماده‌سازی به واحد فروش ارسال می‌شود.</p>
+    {% elif payment.status == 'review' or payment.status == 'initiated' %}
+    <div class="payment-result payment-result--wait">
+      <span class="payment-result__icon">{% icon 'timer' %}</span>
+      <h1 style="font-size:1.5rem">پرداخت در حال بررسی است</h1>
+      <p class="muted">نتیجهٔ نهایی این تراکنش هنوز از بانک تأیید نشده است. اگر مبلغی از حساب شما کسر شده، پس از بررسی ثبت یا طبق قوانین شاپرک حداکثر ظرف ۷۲ ساعت به حساب شما برمی‌گردد.</p>
+    {% elif payment.status == 'reversed' %}
+    <div class="payment-result payment-result--wait">
+      <span class="payment-result__icon">{% icon 'refresh-cw' %}</span>
+      <h1 style="font-size:1.5rem">مبلغ به حساب شما بازگردانده شد</h1>
+      <p class="muted">این تراکنش قابل اعمال روی سفارش نبود و به‌صورت خودکار برگشت داده شد.</p>
+    {% else %}
+    <div class="payment-result payment-result--fail">
+      <span class="payment-result__icon">{% icon 'x' %}</span>
+      <h1 style="font-size:1.5rem">پرداخت انجام نشد</h1>
+      <p class="muted">{{ payment.failure_reason|default:'تراکنش ناموفق بود.' }} اگر مبلغی کسر شده باشد، طبق قوانین شاپرک به حساب شما برمی‌گردد.</p>
+    {% endif %}
+      <dl>
+        <div><dt>شمارهٔ سفارش</dt><dd dir="ltr">{{ order_number }}</dd></div>
+        <div><dt>مبلغ</dt><dd>{{ payment.amount|money:payment.currency }}</dd></div>
+        {% if payment.trace_no %}<div><dt>کد پیگیری</dt><dd dir="ltr">{{ payment.trace_no }}</dd></div>{% endif %}
+        {% if payment.ref_num %}<div><dt>رسید دیجیتال</dt><dd dir="ltr">{{ payment.ref_num }}</dd></div>{% endif %}
+        <div><dt>زمان</dt><dd>{{ payment.updated_at|jalali_datetime }}</dd></div>
+      </dl>
+      {% if order_url %}<a class="button button--gold" href="{{ order_url }}">{% icon 'receipt' %} مشاهدهٔ سفارش</a>{% else %}<a class="button button--gold" href="{% url 'accounts:orders' %}">{% icon 'user' %} ورود و پیگیری سفارش</a>{% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}سفارش {{ order.order_number }} | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><a href="{% url 'accounts:orders' %}">سفارش‌ها</a><span>/</span><span dir="ltr">{{ order.order_number }}</span></nav>
+    <p class="eyebrow">جزئیات سفارش</p>
+    <h1>سفارش <span dir="ltr">{{ order.order_number }}</span></h1>
+    <p>ثبت: {{ order.created_at|jalali_datetime }} · وضعیت: <strong style="color:#fff">{{ order.get_status_display }}</strong></p>
+    {% if order.status == 'awaiting_payment' %}{% include 'partials/checkout_steps.html' with step=4 %}{% else %}{% include 'partials/checkout_steps.html' with step=5 %}{% endif %}
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container receipt-layout">
+    <div>
+      <h2>اقلام سفارش</h2>
+      <div class="receipt-items">
+        {% for item in order.items.all %}
+        <article class="receipt-item">
+          <div class="cart-card__product"><img src="{% steel_image item.variant 'sm' %}" alt="" width="84" height="63" loading="lazy"><strong>{{ item.product_name }} — {{ item.variant_name }}</strong><span>{{ item.quantity|floatformat:-3|fa_digits }} {{ item.get_quantity_unit_display }} × {{ item.unit_price|money:item.currency }} / {{ item.price_unit_label|default:item.get_price_basis_display }}</span></div>
+          <div class="price-cell" style="text-align:end">{{ item.line_total|money:item.currency }}<small>{% if item.tax_included %}با احتساب مالیات{% elif item.tax_included == False %}بدون مالیات{% else %}وضعیت مالیات طبق پیش‌فاکتور{% endif %}</small></div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <h2 style="margin-top:32px">تاریخچهٔ وضعیت</h2>
+      <ol class="timeline">
+        {% for event in status_events %}<li><strong>{{ event.get_to_status_display }}</strong><small>{{ event.created_at|jalali_datetime }}{% if event.note %} · {{ event.note }}{% endif %}</small></li>{% empty %}<li>رویدادی ثبت نشده است.</li>{% endfor %}
+      </ol>
+
+      {% if payments %}
+      <h2 style="margin-top:32px">تراکنش‌ها</h2>
+      <div class="result-list">
+        {% for payment in payments %}<article class="result-card"><span><strong>{{ payment.amount|money:payment.currency }} · {{ payment.get_status_display }}</strong><small>{{ payment.initiated_at|jalali_datetime }}{% if payment.trace_no %} · پیگیری: <span dir="ltr">{{ payment.trace_no }}</span>{% endif %}{% if payment.ref_num %} · رسید: <span dir="ltr">{{ payment.ref_num }}</span>{% endif %}</small></span><span class="tag {% if payment.status == 'succeeded' %}tag--available{% elif payment.status == 'failed' or payment.status == 'cancelled' %}tag--neutral{% elif payment.status == 'reversed' %}tag--info{% else %}tag--stale{% endif %}">{{ payment.get_status_display }}</span></article>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <aside class="order-summary-card">
+      <h2>{% icon 'wallet' %} صورت‌حساب</h2>
+      {% if totals %}
+      <dl>
+        <div><dt>جمع اقلام</dt><dd>{{ totals.subtotal|money:totals.currency }}</dd></div>
+        <div><dt>هزینهٔ حمل</dt><dd>{% if totals.shipping is not None %}{{ totals.shipping|money:totals.currency }}{% else %}در انتظار تأیید{% endif %}</dd></div>
+        <div class="total"><dt>مبلغ قابل پرداخت</dt><dd>{% if totals.total is not None %}{{ totals.total|money:totals.currency }}{% else %}—{% endif %}</dd></div>
+        {% if totals.total_rial and totals.currency != 'IRR' %}<div><dt>معادل ریالی درگاه</dt><dd>{{ totals.total_rial|money:'IRR' }}</dd></div>{% endif %}
+      </dl>
+      {% endif %}
+      {% if order.status == 'awaiting_payment' %}
+        {% if payment_block_reason %}
+          <p class="gateway-note">{% icon 'info' %} {{ payment_block_reason }}</p>
+        {% else %}
+          <form method="post" action="{% url 'orders:order_pay' order.public_id %}">{% csrf_token %}<button class="button button--gold button--full button--lg" type="submit">{% icon 'credit-card' %} پرداخت آنلاین</button></form>
+          <p class="gateway-note">{% icon 'lock' %} پرداخت از درگاه امن بانک سامان (سپ) و شبکهٔ شاپرک انجام می‌شود. موفقیت پرداخت فقط پس از تأیید سمت سرور ثبت می‌شود.</p>
+        {% endif %}
+      {% elif order.status == 'paid' %}
+        <p class="gateway-note">{% icon 'circle-check' %} پرداخت این سفارش تأیید شده است. وضعیت آماده‌سازی و ارسال را از همین صفحه پیگیری کنید.</p>
+      {% endif %}
+      <dl style="margin-top:12px">
+        <div><dt>تحویل‌گیرنده</dt><dd>{{ order.delivery_recipient|default:'—' }}</dd></div>
+        <div><dt>مقصد</dt><dd>{{ order.delivery_city|default:'—' }}{% if order.delivery_province %}، {{ order.delivery_province }}{% endif %}</dd></div>
+      </dl>
+      {% if order.preinvoice_id %}<a class="button button--ghost-light button--full" href="{% url 'orders:preinvoice_detail' order.preinvoice.public_id %}">{% icon 'receipt' %} مشاهدهٔ پیش‌فاکتور</a>{% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

@@ -322,6 +322,7 @@ class PaymentRecord(models.Model):
         FAILED = 'failed', 'ناموفق'
         CANCELLED = 'cancelled', 'لغوشده'
         REFUNDED = 'refunded', 'مستردشده'
+        REVERSED = 'reversed', 'برگشت‌خورده به حساب پرداخت‌کننده'
 
     order = models.ForeignKey(Order, verbose_name='سفارش', related_name='payments', on_delete=models.PROTECT)
     amount = models.DecimalField('مبلغ', max_digits=18, decimal_places=0, validators=[MinValueValidator(1)])
@@ -329,6 +330,11 @@ class PaymentRecord(models.Model):
     provider = models.CharField('درگاه', max_length=40, blank=True)
     status = models.CharField('وضعیت پرداخت', max_length=12, choices=Status.choices, default=Status.INITIATED, db_index=True)
     reference = models.CharField('شناسهٔ پیگیری درگاه', max_length=120, blank=True)
+    amount_rial = models.DecimalField('مبلغ ارسالی به درگاه (ریال)', max_digits=18, decimal_places=0, null=True, blank=True)
+    ref_num = models.CharField('رسید دیجیتال (RefNum)', max_length=120, unique=True, null=True, blank=True)
+    trace_no = models.CharField('شمارهٔ پیگیری (TraceNo)', max_length=40, blank=True)
+    rrn = models.CharField('شمارهٔ مرجع (RRN)', max_length=40, blank=True)
+    masked_pan = models.CharField('کارت پوشانده‌شده', max_length=40, blank=True)
     idempotency_key = models.UUIDField('کلید یکتای درخواست', default=uuid.uuid4, unique=True, editable=False)
     provider_response_code = models.CharField('کد پاسخ درگاه', max_length=40, blank=True)
     failure_reason = models.CharField('شرح کوتاه خطا', max_length=250, blank=True)
@@ -346,3 +352,8 @@ class PaymentRecord(models.Model):
 
     def __str__(self):
         return f'{self.order.order_number} — {self.amount} {self.currency} — {self.get_status_display()}'
+
+    @property
+    def res_num(self):
+        """Merchant reference sent to SEP as ResNum (32 hex characters)."""
+        return self.idempotency_key.hex

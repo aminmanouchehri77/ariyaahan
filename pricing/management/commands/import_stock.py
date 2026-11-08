@@ -5,7 +5,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_datetime as parse_iso_datetime
 
 from catalog.models import ProductVariant
 from pricing.models import InventoryLocation, PriceObservation, StockObservation
@@ -31,7 +31,7 @@ def parse_datetime(value, *, required=False):
         if required:
             raise ValueError('valid_until لازم است تا اعتبار موجودی مشخص باشد.')
         return None
-    parsed = parse_datetime(value)
+    parsed = parse_iso_datetime(value)
     if parsed is None or timezone.is_naive(parsed):
         raise ValueError('تاریخ باید ISO 8601 همراه منطقهٔ زمانی باشد؛ نمونه: 2026-11-05T14:30:00+03:30')
     return parsed

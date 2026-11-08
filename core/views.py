@@ -4,18 +4,18 @@ import re
 from urllib.parse import urlsplit
 
 from django.conf import settings
-from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseGone, HttpResponseRedirect, JsonResponse
+from django.db.models import F, Q
+from django.http import HttpResponse, HttpResponseGone, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
-from catalog.models import Category, Product, ProductVariant
-from content.models import MarketNews
+from catalog.models import Category, Manufacturer, Product, ProductVariant
+from content.models import Article, MarketNews
 from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
-from pricing.models import ShippingRate
+from pricing.models import PriceObservation, ShippingRate
 from .models import RedirectRule
 from .seo import canonical_url
 
@@ -23,12 +23,14 @@ from .forms import ShippingEstimateForm, SteelWeightForm
 
 
 def home(request):
-    categories = Category.objects.filter(
+    categories = list(Category.objects.filter(
         is_active=True,
         parent__isnull=True,
-    ).annotate(
-        product_count=Count('products', filter=Q(products__is_active=True)),
-    ).order_by('sort_order', 'name')
+    ).order_by('sort_order', 'name'))
+    for category in categories:
+        category.product_count = Product.objects.filter(
+            is_active=True, category_id__in=category.descendant_ids(),
+        ).count()
 
     variants = latest_stock_observations(with_latest_price(
         ProductVariant.objects.filter(
@@ -38,9 +40,23 @@ def home(request):
         ).select_related('product', 'product__category', 'manufacturer')
     )).order_by(F('latest_observed_at').desc(nulls_last=True), 'product__name')[:6]
     latest_market_news = MarketNews.objects.select_related('variant__product').all()[:3]
+    latest_articles = Article.objects.filter(
+        status=Article.Status.PUBLISHED, published_at__lte=timezone.now(),
+    ).prefetch_related('related_products').order_by('-published_at', '-pk')[:3]
+    latest_price = PriceObservation.objects.filter(
+        status=PriceObservation.Status.APPROVED,
+    ).order_by('-observed_at').values_list('observed_at', flat=True).first()
+    stats = {
+        'products': Product.objects.filter(is_active=True, category__is_active=True).count(),
+        'variants': ProductVariant.objects.filter(is_active=True, product__is_active=True).count(),
+        'manufacturers': Manufacturer.objects.filter(is_active=True).count(),
+        'latest_price_at': latest_price,
+    }
 
     return render(request, 'core/home.html', {
         'categories': categories,
+        'latest_articles': latest_articles,
+        'stats': stats,
         'featured_variants': mark_stock_state(mark_price_state(list(variants))),
         'latest_market_news': latest_market_news,
     })
@@ -253,7 +269,12 @@ def legacy_route(request, old_path):
 
 
 def page_not_found(request, exception):
-    return HttpResponse(get_template('404.html').render(), status=404)
+    # Render with the request so the shared layout (navigation, CSRF, contact
+    # details) works; fall back to a context-free render if that fails.
+    try:
+        return render(request, '404.html', status=404)
+    except Exception:  # pragma: no cover - defensive fallback
+        return HttpResponseNotFound(get_template('404.html').render())
 
 
 def server_error(request):

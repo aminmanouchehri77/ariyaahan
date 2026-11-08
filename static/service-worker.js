@@ -1,10 +1,13 @@
-const CACHE_NAME = 'ariaa-shell-v2';
+const CACHE_NAME = 'ariaa-shell-v3';
 const SHELL_ASSETS = [
   '/offline/',
   '/static/core/css/site.css',
   '/static/core/js/site.js',
   '/static/core/icons/icon-192.png',
-  '/static/core/icons/icon-512.png'
+  '/static/core/icons/icon-512.png',
+  '/static/core/fonts/vazirmatn-var.woff2',
+  '/static/core/brand/emblem.svg',
+  '/static/core/brand/icons.svg'
 ];
 
 self.addEventListener('install', (event) => {

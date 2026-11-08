@@ -1,41 +1,71 @@
 {% extends 'base.html' %}
 {% load ariaa_tags %}
-{% block title %}رسید درخواست پیش‌فاکتور | آهن‌آلات آریا{% endblock %}
+{% block title %}رسید پیش‌فاکتور #{{ preinvoice.pk }} | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}رسید ثبت درخواست پیش‌فاکتور از آهن‌آلات آریا.{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
 {% block content %}
-<section class="section content-section"><div class="container receipt-layout">
-  <div class="receipt-heading"><span class="receipt-check" aria-hidden="true">✓</span><div><p class="eyebrow eyebrow--dark">درخواست ثبت شد</p><h1>رسید درخواست پیش‌فاکتور</h1><p>شمارهٔ پیگیری: <strong>{{ preinvoice.pk|fa_digits }}</strong> · {{ preinvoice.created_at|jalali_datetime }}</p></div></div>
-  <div class="receipt-status"><span>وضعیت فعلی</span><strong>{{ preinvoice.get_status_display }}</strong>
-    {% if preinvoice.status == 'awaiting_customer' %}<p>کارشناس قیمت و موجودی را برای این پیش‌فاکتور ثبت کرده است. پذیرش شما برای ادامهٔ بررسی سفارش است و به‌تنهایی سفارش قطعی یا پرداخت ایجاد نمی‌کند.</p>
-      {% if preinvoice.quote_issued_at %}<small>صدور: {{ preinvoice.quote_issued_at|jalali_datetime }}{% if preinvoice.quote_valid_until %} · اعتبار تا {{ preinvoice.quote_valid_until|jalali_datetime }}{% endif %}</small>{% endif %}
-    {% elif preinvoice.status == 'confirmed' %}<p>پذیرش این پیش‌فاکتور با کد پیامکی ثبت شده است. کارشناس مرحلهٔ بعد را پیگیری می‌کند؛ هنوز پرداختی ثبت نشده است.</p>
-    {% else %}<p>این رسید سفارش قطعی یا درخواست پرداخت نیست. کارشناس باید قیمت، موجودی و شرایط تحویل را بررسی کند.</p>{% endif %}
+<section class="page-hero">
+  <div class="container">
+    <span class="page-hero__icon">{% icon 'receipt' %}</span>
+    <p class="eyebrow">رسید درخواست</p>
+    <h1>پیش‌فاکتور شمارهٔ {{ preinvoice.pk|fa_digits }}</h1>
+    <p>ثبت: {{ preinvoice.created_at|jalali_datetime }} · {{ preinvoice.customer_name }}{% if preinvoice.company_name %} · {{ preinvoice.company_name }}{% endif %}</p>
+    {% if preinvoice.status == 'awaiting_customer' or preinvoice.status == 'confirmed' %}{% include 'partials/checkout_steps.html' with step=3 %}{% elif preinvoice.status == 'converted' %}{% include 'partials/checkout_steps.html' with step=4 %}{% else %}{% include 'partials/checkout_steps.html' with step=3 %}{% endif %}
   </div>
-  {% if preinvoice.status == 'awaiting_customer' %}
-    <section class="receipt-acceptance" aria-labelledby="accept-quote-title">
-      <h2 id="accept-quote-title">بررسی و پذیرش پیش‌فاکتور</h2>
-      {% if quote_expired %}<p role="status">مهلت این پیش‌فاکتور تمام شده است. برای بررسی دوباره با کارشناس فروش تماس بگیرید.</p>
-      {% else %}
-        <p>برای اثبات دسترسی به شمارهٔ همراه ثبت‌شده، کد یک‌بارمصرف به {{ masked_mobile|fa_digits }} ارسال می‌شود.</p>
-        <form method="post" action="{% url 'orders:preinvoice_acceptance_code' preinvoice.public_id %}">
-          {% csrf_token %}<button class="button button--navy" type="submit">{% if otp_sent %}ارسال دوبارهٔ کد{% else %}درخواست کد تأیید{% endif %}</button>
-        </form>
-        {% if otp_sent %}
-          <form class="receipt-acceptance__verify" method="post" action="{% url 'orders:preinvoice_accept' preinvoice.public_id %}">
-            {% csrf_token %}
-            <div class="form-field">{{ accept_quote_form.code.label_tag }}{{ accept_quote_form.code }}</div>
-            <div class="form-field checkout-price-confirmation"><label for="{{ accept_quote_form.accept_quote.id_for_label }}">{{ accept_quote_form.accept_quote }} {{ accept_quote_form.accept_quote.label }}</label></div>
-            <button class="button button--gold" type="submit">تأیید کد و ثبت پذیرش</button>
-          </form>
+</section>
+<section class="section content-section">
+  <div class="container receipt-layout">
+    <div>
+      <div class="receipt-heading"><h2 style="margin:0">اقلام ثبت‌شده</h2><span class="receipt-status">{% icon 'info' 'i--sm' %} {{ preinvoice.get_status_display }}</span></div>
+      <div class="receipt-items">
+        {% for item in preinvoice_items %}
+        <article class="receipt-item">
+          <div class="cart-card__product"><img src="{% steel_image item.variant 'sm' %}" alt="" width="84" height="63" loading="lazy"><strong>{{ item.product_name }} — {{ item.variant_name }}</strong><span>{{ item.quantity|floatformat:-3|fa_digits }} {{ item.get_quantity_unit_display }}{% if item.sku %} · <span dir="ltr">{{ item.sku }}</span>{% endif %}</span></div>
+          <div>
+            {% if item.unit_price %}<span>آخرین مبلغ: <strong>{{ item.unit_price|money:item.currency }}</strong> / {{ item.price_unit_label|default:item.get_price_basis_display|default:'مبنای نامشخص' }}</span>{% else %}<span class="tag tag--neutral">قیمت ثبت نشده؛ نیازمند استعلام</span>{% endif %}
+            {% if item.price_is_usable %}<small class="table-sub">برآورد ردیف: <b>{{ item.line_total|money:item.currency }}</b></small>{% elif item.unit_price %}<small class="table-sub">مبلغ فقط سابقهٔ قیمت است و در جمع معتبر لحاظ نشده.</small>{% endif %}
+            <small class="table-sub">موجودی هنگام ثبت: {% if item.stock_observation_id %}{{ item.stock_quantity|floatformat:-3|fa_digits }} {{ item.stock_unit }}{% if item.stock_location %} · {{ item.stock_location }}{% endif %}{% if item.stock_is_usable %} · کافی و معتبر{% else %} · نیازمند بررسی{% endif %}{% else %}ثبت معتبر موجودی در دسترس نبود؛ نیازمند بررسی{% endif %}</small>
+            {% if item.stock_observed_at %}<small class="table-sub">زمان ثبت موجودی: {{ item.stock_observed_at|jalali_datetime }}{% if item.stock_valid_until %} · اعتبار تا {{ item.stock_valid_until|jalali_datetime }}{% endif %}</small>{% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% if currency_totals %}<div class="receipt-total" style="margin-top:14px">{% for currency, amount in currency_totals.items %}<span>جمع برآورد اقلام</span><span>{{ amount|money:currency }}</span>{% endfor %}</div>{% endif %}
+    </div>
+
+    <aside class="order-summary-card">
+      <h2>وضعیت درخواست</h2>
+      {% if preinvoice.status == 'awaiting_customer' %}
+        <p>کارشناس قیمت و موجودی این پیش‌فاکتور را تأیید کرده است. پذیرش شما برای ادامهٔ سفارش است و به‌تنهایی پرداخت ایجاد نمی‌کند.</p>
+        {% if preinvoice.quote_issued_at %}<p class="gateway-note">{% icon 'clock' %} صدور: {{ preinvoice.quote_issued_at|jalali_datetime }}{% if preinvoice.quote_valid_until %} — اعتبار تا {{ preinvoice.quote_valid_until|jalali_datetime }}{% endif %}</p>{% endif %}
+        {% if quote_expired %}
+          <p role="status" class="cart-warning">مهلت این پیش‌فاکتور تمام شده است. برای بررسی دوباره با کارشناس فروش تماس بگیرید.</p>
+        {% else %}
+          <p>کد یک‌بارمصرف به {{ masked_mobile|fa_digits }} ارسال می‌شود.</p>
+          <form method="post" action="{% url 'orders:preinvoice_acceptance_code' preinvoice.public_id %}">{% csrf_token %}<button class="button {% if otp_sent %}button--ghost-light{% else %}button--gold{% endif %} button--full" type="submit">{% icon 'send' %} {% if otp_sent %}ارسال دوبارهٔ کد{% else %}دریافت کد تأیید{% endif %}</button></form>
+          {% if otp_sent %}
+            <form class="receipt-acceptance__verify" method="post" action="{% url 'orders:preinvoice_accept' preinvoice.public_id %}" style="margin-top:16px">
+              {% csrf_token %}
+              <div class="form-field"><label for="{{ accept_quote_form.code.id_for_label }}" style="color:#fff">{{ accept_quote_form.code.label }}</label>{{ accept_quote_form.code }}</div>
+              <div class="form-field checkout-price-confirmation" style="color:var(--text)"><label for="{{ accept_quote_form.accept_quote.id_for_label }}">{{ accept_quote_form.accept_quote }} {{ accept_quote_form.accept_quote.label }}</label></div>
+              <button class="button button--gold button--full" type="submit">{% icon 'shield-check' %} تأیید کد و پذیرش پیش‌فاکتور</button>
+            </form>
+          {% endif %}
         {% endif %}
+      {% elif preinvoice.status == 'confirmed' %}
+        <p>{% icon 'circle-check' %} پذیرش شما با کد پیامکی ثبت شد. پس از ثبت سفارش و هزینهٔ حمل، امکان پرداخت آنلاین در حساب کاربری فعال می‌شود.</p>
+      {% elif preinvoice.status == 'converted' %}
+        <p>{% icon 'circle-check' %} این پیش‌فاکتور به سفارش تبدیل شده است.</p>
+        <a class="button button--gold button--full" href="{% url 'accounts:orders' %}">{% icon 'credit-card' %} پیگیری و پرداخت سفارش</a>
+      {% else %}
+        <p>این رسید سفارش قطعی یا درخواست پرداخت نیست. کارشناس قیمت، موجودی و شرایط تحویل را بررسی و پیش‌فاکتور را صادر می‌کند.</p>
       {% endif %}
-    </section>
-  {% endif %}
-  <div class="receipt-items"><h2>اقلام ثبت‌شده</h2>
-    {% for item in preinvoice_items %}<article class="receipt-item"><div><strong>{{ item.product_name }} — {{ item.variant_name }}</strong><span>{{ item.quantity|fa_digits }} {{ item.get_quantity_unit_display }}</span></div><div>{% if item.unit_price %}<span>آخرین مبلغ: {{ item.unit_price|money:item.currency }} / {{ item.price_unit_label|default:item.get_price_basis_display|default:'مبنای نامشخص' }}</span>{% else %}<span>قیمت ثبت نشده؛ نیازمند استعلام</span>{% endif %}{% if item.price_is_usable %}<strong>برآورد ردیف: {{ item.line_total|money:item.currency }}</strong>{% elif item.unit_price %}<small>مبلغ فقط سابقهٔ قیمت است و برای جمع معتبر استفاده نشده.</small>{% endif %}<small>موجودی هنگام ثبت: {% if item.stock_observation_id %}{{ item.stock_quantity|fa_digits }} {{ item.stock_unit }}{% if item.stock_location %} · {{ item.stock_location }}{% endif %}{% if item.stock_is_usable %} · برای مقدار درخواست‌شده کافی و معتبر{% else %} · نیازمند بررسی{% endif %}{% else %}ثبت معتبر موجودی در دسترس نبود؛ نیازمند بررسی{% endif %}</small>{% if item.stock_observed_at %}<small>زمان ثبت موجودی: {{ item.stock_observed_at|jalali_datetime }}{% if item.stock_valid_until %} · اعتبار تا {{ item.stock_valid_until|jalali_datetime }}{% endif %}</small>{% endif %}</div></article>{% endfor %}
+      <dl style="margin-top:18px">
+        <div><dt>شهر مقصد</dt><dd>{{ preinvoice.delivery_city|default:'—' }}</dd></div>
+        <div><dt>تحویل‌گیرنده</dt><dd>{{ preinvoice.delivery_recipient|default:preinvoice.customer_name }}</dd></div>
+      </dl>
+      <a class="button button--ghost-light button--full" href="{% url 'catalog:category_list' %}">بازگشت به کاتالوگ</a>
+    </aside>
   </div>
-  {% if currency_totals %}<div class="receipt-total">{% for currency, amount in currency_totals.items %}<p>جمع برآورد به {{ currency }}: <strong>{{ amount|money:currency }}</strong></p>{% endfor %}</div>{% endif %}
-  <a class="button button--navy" href="{% url 'core:home' %}">بازگشت به سایت</a>
-</div></section>
+</section>
 {% endblock %}

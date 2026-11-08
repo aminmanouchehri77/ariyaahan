@@ -7,6 +7,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from accounts.models import CustomerProfile
+from core.throttle import submission_allowed
 from .forms import MarketplaceListingForm
 from .models import MarketplaceListing
 
@@ -16,7 +17,11 @@ PAGE_SIZE = 12
 
 def _hall(request, kind):
     form = MarketplaceListingForm(request.POST if request.method == 'POST' else None, kind=kind)
-    if request.method == 'POST' and form.is_valid():
+    throttled = request.method == 'POST' and not submission_allowed(request, f'listing-{kind}')
+    if throttled:
+        form.is_valid()
+        form.add_error(None, 'تعداد ارسال‌های شما در چند دقیقهٔ اخیر زیاد بوده است؛ کمی بعد دوباره تلاش کنید.')
+    elif request.method == 'POST' and form.is_valid():
         listing = form.save(commit=False)
         if request.user.is_authenticated:
             listing.profile = CustomerProfile.objects.filter(

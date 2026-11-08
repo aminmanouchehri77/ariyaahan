@@ -103,6 +103,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.navigation_categories',
+                'core.context_processors.site_integrations',
             ],
         },
     },
@@ -224,17 +225,26 @@ if PUBLIC_SITE_URL:
 TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()
 TWA_SHA256_CERT_FINGERPRINTS = os.getenv('TWA_SHA256_CERT_FINGERPRINTS', '').strip()
 PAYMENT_ENABLED = os.getenv('PAYMENT_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
-PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', '').strip().lower()
-# The SEP API adapter stays unavailable until the bank's signed integration
-# contract and sandbox credentials have been received and verified.
-SEP_INTEGRATION_READY = False
+PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', 'sep').strip().lower()
+# SEP (Saman Electronic Payment) internet payment gateway. Endpoints default
+# to SEP's published production URLs; only the terminal ID is merchant-specific.
+# The server's public IP must also be registered in the SEP merchant panel.
+SEP_INTEGRATION_READY = True
 SEP_TERMINAL_ID = os.getenv('SEP_TERMINAL_ID', '').strip()
-SEP_TOKEN_URL = os.getenv('SEP_TOKEN_URL', '').strip()
-SEP_PAYMENT_URL = os.getenv('SEP_PAYMENT_URL', '').strip()
-SEP_VERIFY_URL = os.getenv('SEP_VERIFY_URL', '').strip()
+SEP_TOKEN_URL = os.getenv('SEP_TOKEN_URL', 'https://sep.shaparak.ir/onlinepg/onlinepg').strip()
+SEP_PAYMENT_URL = os.getenv('SEP_PAYMENT_URL', 'https://sep.shaparak.ir/OnlinePG/OnlinePG').strip()
+SEP_VERIFY_URL = os.getenv(
+    'SEP_VERIFY_URL', 'https://sep.shaparak.ir/verifyTxnRandomSessionkey/ipg/VerifyTransaction',
+).strip()
+SEP_REVERSE_URL = os.getenv(
+    'SEP_REVERSE_URL', 'https://sep.shaparak.ir/verifyTxnRandomSessionkey/ipg/ReverseTransaction',
+).strip()
+SEP_TOKEN_EXPIRY_MINUTES = min(3600, max(20, int(os.getenv('SEP_TOKEN_EXPIRY_MINUTES', '20'))))
+SEP_TIMEOUT = float(os.getenv('SEP_TIMEOUT', '15'))
+SEP_VERIFY_RETRIES = max(0, int(os.getenv('SEP_VERIFY_RETRIES', '2')))
 
 if PAYMENT_PROVIDER not in {'', 'sep'}:
-    raise RuntimeError('Unsupported PAYMENT_PROVIDER. This project currently prepares only the SEP gateway.')
+    raise RuntimeError('Unsupported PAYMENT_PROVIDER. This project currently supports only the SEP gateway.')
 
 if PAYMENT_ENABLED:
     missing_payment_settings = [
@@ -244,6 +254,7 @@ if PAYMENT_ENABLED:
             ('SEP_TOKEN_URL', SEP_TOKEN_URL),
             ('SEP_PAYMENT_URL', SEP_PAYMENT_URL),
             ('SEP_VERIFY_URL', SEP_VERIFY_URL),
+            ('SEP_REVERSE_URL', SEP_REVERSE_URL),
             ('PUBLIC_SITE_URL', PUBLIC_SITE_URL),
         ) if not value
     ]
@@ -252,13 +263,26 @@ if PAYMENT_ENABLED:
             'Online payment cannot be enabled until SEP settings are supplied: '
             + ', '.join(missing_payment_settings)
         )
+    if not SEP_TERMINAL_ID.isdigit():
+        raise RuntimeError('SEP_TERMINAL_ID must be the numeric terminal ID issued by SEP.')
     if not PUBLIC_SITE_URL.startswith('https://'):
-        raise RuntimeError('Online payment requires PUBLIC_SITE_URL to use HTTPS.')
-    if any(not url.startswith('https://') for url in (SEP_TOKEN_URL, SEP_PAYMENT_URL, SEP_VERIFY_URL)):
+        raise RuntimeError('Online payment requires PUBLIC_SITE_URL to use HTTPS for the bank callback.')
+    if any(
+        not url.startswith('https://')
+        for url in (SEP_TOKEN_URL, SEP_PAYMENT_URL, SEP_VERIFY_URL, SEP_REVERSE_URL)
+    ):
         raise RuntimeError('SEP API and redirect URLs must use HTTPS.')
-    raise RuntimeError(
-        'SEP checkout is not implemented yet. Keep PAYMENT_ENABLED=0 until the bank API contract is integrated and verified.'
-    )
+
+# Trust seals (e-Namad and Samandehi). Paste the values issued for the final
+# domain; empty values keep the badge slot hidden.
+ENAMAD_ID = os.getenv('ENAMAD_ID', '').strip()
+ENAMAD_CODE = os.getenv('ENAMAD_CODE', '').strip()
+ENAMAD_META_CODE = os.getenv('ENAMAD_META_CODE', '').strip()
+SAMANDEHI_ID = os.getenv('SAMANDEHI_ID', '').strip()
+SAMANDEHI_CODE = os.getenv('SAMANDEHI_CODE', '').strip()
+
+FORM_SUBMISSION_LIMIT = int(os.getenv('FORM_SUBMISSION_LIMIT', '6'))
+FORM_SUBMISSION_WINDOW = int(os.getenv('FORM_SUBMISSION_WINDOW', '600'))
 
 
 # Internationalization

@@ -6,8 +6,9 @@
 {% block content %}
 <section class="page-hero"><div class="container">
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>سبد پیش‌فاکتور</span></nav>
-  <p class="eyebrow eyebrow--dark">سبد خرید اولیه</p><h1>سبد پیش‌فاکتور</h1>
-  <p>اقلام و مقدار درخواستی را مرور کنید. قیمت نهایی، موجودی و هزینهٔ حمل پس از بررسی شرکت تأیید می‌شود.</p>
+  <p class="eyebrow">سبد خرید</p><h1>سبد پیش‌فاکتور</h1>
+  <p>اقلام و مقدار درخواستی را مرور کنید. قیمت نهایی، موجودی و هزینهٔ حمل پس از بررسی کارشناس تأیید می‌شود.</p>
+  {% include 'partials/checkout_steps.html' with step=1 %}
 </div></section>
 <section class="section content-section"><div class="container cart-layout">
   <div class="cart-main">
@@ -16,7 +17,7 @@
       {% for line in cart_lines %}{% with variant=line.variant %}
         <article class="cart-card">
           <div class="cart-card__main">
-            <div class="cart-card__product"><a href="{{ variant.product.get_absolute_url }}"><strong>{{ variant.product.name }}</strong></a><span>{{ variant.name }}{% if variant.manufacturer %} · {{ variant.manufacturer.name }}{% endif %}</span>
+            <div class="cart-card__product"><img src="{% steel_image variant 'sm' %}" alt="" width="84" height="63" loading="lazy"><a href="{{ variant.product.get_absolute_url }}"><strong>{{ variant.product.name }}</strong></a><span>{{ variant.name }}{% if variant.manufacturer %} · {{ variant.manufacturer.name }}{% endif %}</span>
               <small>{% if variant.size %}سایز {{ variant.size }}{% endif %}{% if variant.grade %} · {{ variant.grade }}{% endif %}</small>
             </div>
             <span class="tag {% if line.price_is_usable %}tag--available{% elif variant.price_expired or variant.price_validity_unknown %}tag--stale{% else %}tag--neutral{% endif %}">{{ line.price_state }}</span>
@@ -32,23 +33,24 @@
           <div class="cart-card__actions">
             <form class="cart-quantity-form" method="post" action="{% url 'orders:cart_update' variant.pk %}">
               {% csrf_token %}<label for="cart-quantity-{{ variant.pk }}">مقدار ({{ variant.get_unit_display }})</label>
-              <div><input id="cart-quantity-{{ variant.pk }}" type="number" name="quantity" value="{{ line.quantity }}" min="0.001" max="1000000" step="0.001" inputmode="decimal"><button class="button button--outline" type="submit">به‌روزرسانی</button></div>
+              <div><span class="qty" data-qty><button type="button" data-step="1" aria-label="افزایش">+</button><input id="cart-quantity-{{ variant.pk }}" type="number" name="quantity" value="{{ line.quantity }}" min="0.001" max="1000000" step="0.001" inputmode="decimal"><button type="button" data-step="-1" aria-label="کاهش">−</button></span><button class="button button--outline" type="submit">{% icon 'refresh-cw' %} به‌روزرسانی</button></div>
             </form>
-            <form method="post" action="{% url 'orders:cart_remove' variant.pk %}">{% csrf_token %}<button class="cart-remove" type="submit">حذف از سبد</button></form>
+            <form method="post" action="{% url 'orders:cart_remove' variant.pk %}">{% csrf_token %}<button class="cart-remove" type="submit">{% icon 'trash-2' 'i--sm' %} حذف</button></form>
           </div>
         </article>
       {% endwith %}{% endfor %}
       </div>
     {% else %}
-      <div class="empty-state"><strong>سبد شما خالی است</strong><p>از صفحهٔ محصول، مقدار موردنیاز را وارد و به سبد پیش‌فاکتور اضافه کنید.</p><a class="button button--navy" href="{% url 'catalog:category_list' %}">رفتن به کاتالوگ</a></div>
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'clipboard-list' %}</span><strong>سبد شما خالی است</strong><p>از صفحهٔ محصول، مقدار موردنیاز را وارد و به سبد پیش‌فاکتور اضافه کنید.</p><a class="button button--navy" href="{% url 'catalog:category_list' %}">رفتن به کاتالوگ</a></div>
     {% endif %}
   </div>
   {% if cart_lines %}<aside class="cart-summary">
-    <p class="eyebrow eyebrow--dark">خلاصهٔ برآورد</p><h2>مبالغ ثبت‌شده</h2>
+    <p class="eyebrow eyebrow--dark">خلاصهٔ برآورد</p><h2>جمع اقلام</h2>
     {% if currency_totals %}<div class="cart-totals">{% for total in currency_totals %}<div><span>جمع برآورد به {{ total.label }}</span><strong>{{ total.amount|money:total.currency }}</strong></div>{% endfor %}</div>{% else %}<p>هنوز جمع قابل محاسبه‌ای وجود ندارد؛ برای اقلام سبد درخواست قیمت ثبت کنید.</p>{% endif %}
     {% if has_unpriced_items %}<p class="cart-warning">بعضی اقلام قیمت معتبر یا واحد محاسباتی روشن ندارند؛ مبلغ آن‌ها پس از استعلام مشخص می‌شود.</p>{% endif %}
     <p class="cart-disclaimer">این برآورد پیش‌فاکتور قطعی نیست. قیمت، مالیات، موجودی و حمل باید توسط کارشناس تأیید شود.</p>
-    <a class="button button--gold button--full" href="{% url 'orders:checkout' %}">ادامه و ثبت درخواست پیش‌فاکتور</a>
+    <a class="button button--gold button--full button--lg" href="{% url 'orders:checkout' %}">ادامه و ثبت درخواست {% icon 'arrow-left' 'i--sm' %}</a>
+    <p class="gateway-note" style="color:var(--text-soft)">{% icon 'shield-check' %} پرداخت فقط پس از صدور پیش‌فاکتور و تأیید پیامکی شما فعال می‌شود.</p>
   </aside>{% endif %}
 </div></section>
 {% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}انتقال به درگاه پرداخت | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container redirect-card">
+    <div class="payment-result">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1 style="font-size:1.4rem">در حال انتقال به درگاه بانک سامان…</h1>
+      <p class="muted">سفارش <span dir="ltr">{{ order.order_number }}</span> · مبلغ {{ payment.amount|money:payment.currency }}</p>
+      <form method="post" action="{{ gateway_action }}" data-autosubmit>
+        {% for name, value in gateway_fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+        <button class="button button--gold button--lg" type="submit">{% icon 'credit-card' %} ورود به درگاه پرداخت</button>
+      </form>
+      <p class="gateway-note" style="color:var(--text-soft)">{% icon 'lock' %} اگر انتقال خودکار انجام نشد، دکمهٔ بالا را بزنید. اطلاعات کارت فقط در صفحهٔ بانک وارد می‌شود.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

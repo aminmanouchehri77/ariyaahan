@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Max, Min, Q
+from django.db.models import Avg, Count, F, Max, Min, Prefetch, Q
 from django.db.models.functions import TruncDate, TruncMonth
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
@@ -26,6 +26,8 @@ def category_list(request):
     categories = Category.objects.filter(
         is_active=True,
         parent__isnull=True,
+    ).prefetch_related(
+        Prefetch('children', queryset=Category.objects.filter(is_active=True).order_by('sort_order', 'name'), to_attr='active_children'),
     ).order_by('sort_order', 'name')
     return render(request, 'catalog/category_list.html', {
         'categories': categories,
@@ -36,9 +38,13 @@ def category_list(request):
 
 
 def category_detail(request, slug):
-    category = get_object_or_404(Category, slug=slug, is_active=True)
+    category = get_object_or_404(Category.objects.select_related('parent'), slug=slug, is_active=True)
+    category_ids = category.descendant_ids()
+    subcategories = list(category.children.filter(is_active=True).order_by('sort_order', 'name'))
+    ancestors = category.ancestors()
     variants = ProductVariant.objects.filter(
-        product__category=category,
+        product__category_id__in=category_ids,
+        product__category__is_active=True,
         product__is_active=True,
         is_active=True,
     ).select_related('product', 'product__category', 'manufacturer')
@@ -131,6 +137,8 @@ def category_detail(request, slug):
         next_url = f'?{query.urlencode()}'
     return render(request, 'catalog/category_detail.html', {
         'category': category,
+        'subcategories': subcategories,
+        'ancestors': ancestors,
         'page_obj': page,
         'filters': filters,
         'ordering': ordering,
@@ -142,6 +150,7 @@ def category_detail(request, slug):
         'compare_count': len(get_variant_ids(request)),
         'breadcrumb_schema': breadcrumb_schema(request, [
             ('خانه', '/'), ('دسته‌بندی کالا', reverse('catalog:category_list')),
+            *[(ancestor.name, ancestor.get_absolute_url()) for ancestor in ancestors],
             (category.name, category.get_absolute_url()),
         ]),
     })
