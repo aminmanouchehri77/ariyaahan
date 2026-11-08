@@ -272,7 +272,8 @@ class ProductJsonLdAndOrderingTests(CatalogFixtureMixin, TestCase):
         response = self.client.get(self.url())
         self.assertFalse(response.context['variants'][0].price_orderable)
         self.assertContains(response, 'data-order-disabled')
-        self.assertContains(response, 'قیمت منقضی')
+        self.assertContains(response, 'قیمت این کالا منقضی شده است')
+        self.assertNotContains(response, 'cart-add-form')
 
     def test_unknown_validity_disables_immediate_order(self):
         self.price(valid_for=None)

@@ -57,6 +57,37 @@ def mark_price_state(variants):
     return variants
 
 
+EXPIRED_PRICE_MESSAGE = (
+    'قیمت «{name}» منقضی شده است و تا ثبت قیمت تازه نمی‌توان آن را به سبد خرید افزود. '
+    'برای دریافت قیمت روز می‌توانید استعلام بگیرید.'
+)
+UNKNOWN_VALIDITY_MESSAGE = (
+    'اعتبار قیمت «{name}» مشخص نیست و تا تأیید قیمت تازه نمی‌توان آن را به سبد خرید افزود. '
+    'برای دریافت قیمت روز می‌توانید استعلام بگیرید.'
+)
+
+
+def cart_block_reason(variant):
+    """Why a variant may not enter the cart right now, or None.
+
+    A variant whose latest approved price has expired (or has no validity
+    date) must not be added: the customer would be shown a stale price.
+    Variants with no price at all can still be added as a quote request.
+    """
+    from catalog.models import ProductVariant
+
+    current = mark_price_state(list(with_latest_price(ProductVariant.objects.filter(pk=variant.pk))))
+    if not current:
+        return None
+    current = current[0]
+    name = f'{variant.product.name} — {variant.name}'
+    if current.price_expired:
+        return EXPIRED_PRICE_MESSAGE.format(name=name)
+    if current.price_validity_unknown:
+        return UNKNOWN_VALIDITY_MESSAGE.format(name=name)
+    return None
+
+
 def mark_stock_state(variants):
     now = timezone.now()
     unit_labels = dict(PriceObservation.PriceBasis.choices)

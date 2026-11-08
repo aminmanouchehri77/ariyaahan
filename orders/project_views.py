@@ -95,8 +95,14 @@ def project_update(request, public_id):
     elif action == 'to_cart':
         cart = Cart(request)
         added = 0
-        for item in project.items.select_related('variant'):
+        from pricing.selectors import cart_block_reason
+
+        for item in project.items.select_related('variant', 'variant__product'):
             if not item.variant.is_active:
+                continue
+            blocked = cart_block_reason(item.variant)
+            if blocked:
+                messages.warning(request, blocked)
                 continue
             try:
                 cart.add(item.variant_id, item.quantity)

@@ -1392,3 +1392,10 @@ kbd { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1px s
 .preview-banner { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 16px; background: var(--molten, #ff6a1a); color: #1a1208; font-size: .9rem; }
 .preview-banner a { color: inherit; font-weight: 700; text-decoration: underline; }
 .preview-banner svg { width: 18px; height: 18px; }
+
+/* Variant whose price has expired: cannot be added to the cart */
+.price-expired-box { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--warning-50); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); color: var(--text); }
+.price-expired-box__icon { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.price-expired-box strong { display: block; color: var(--warning); margin-bottom: 4px; }
+.price-expired-box p { margin: 0 0 10px; font-size: .88rem; color: var(--text-muted); }
+.cart-line-expired { display: block; margin-top: 6px; color: var(--warning); font-size: .8rem; font-weight: 600; }

@@ -61,6 +61,16 @@
             {% if variant.spark %}<span class="piece-price">{% sparkline variant %} روند آخرین ثبت‌ها{% if variant.spark_change %}: {{ variant.spark_change|percent_fa }}{% endif %}</span>{% endif %}
             {% if variant.latest_location or variant.latest_source %}<small>{% icon 'map-pin' 'i--sm' %} {% if variant.latest_location %}تحویل: {{ variant.latest_location }}{% endif %}{% if variant.latest_source %} · منبع: {{ variant.latest_source }}{% endif %}{% if variant.latest_tax_included %} · با احتساب مالیات{% elif variant.latest_tax_included == False %} · بدون مالیات{% endif %}</small>{% endif %}
           </div>
+          {% if variant.price_expired or variant.price_validity_unknown %}
+          <div class="price-expired-box" role="status" data-order-disabled>
+            <span class="price-expired-box__icon">{% icon 'clock' %}</span>
+            <div>
+              <strong>{% if variant.price_expired %}قیمت این کالا منقضی شده است{% else %}اعتبار قیمت این کالا مشخص نیست{% endif %}</strong>
+              <p>تا ثبت قیمت تازه، امکان افزودن این گونه به سبد خرید وجود ندارد. برای دریافت قیمت روز استعلام بگیرید یا هشدار قیمت بسازید.</p>
+              <a class="button button--gold button--sm" href="{% url 'inquiries:quote' %}?variant={{ variant.pk }}">{% icon 'receipt' 'i--sm' %} استعلام قیمت روز</a>
+            </div>
+          </div>
+          {% else %}
           <form class="cart-add-form" method="post" action="{% url 'orders:cart_add' variant.pk %}">
             {% csrf_token %}
             <label for="quantity-{{ variant.pk }}">مقدار درخواستی ({{ variant.get_unit_display }})</label>
@@ -68,8 +78,9 @@
               <span class="qty" data-qty><button type="button" data-step="1" aria-label="افزایش">+</button><input id="quantity-{{ variant.pk }}" type="number" name="quantity" value="1" min="0.001" max="1000000" step="0.001" inputmode="decimal"><button type="button" data-step="-1" aria-label="کاهش">−</button></span>
               <button class="button button--gold" type="submit">{% icon 'clipboard-list' %} {% if variant.price_orderable %}افزودن به سبد{% else %}افزودن به سبد استعلام{% endif %}</button>
             </div>
-            {% if not variant.price_orderable %}<small class="form-help" data-order-disabled>سفارش فوری برای این گونه فعال نیست؛ قیمت{% if variant.price_expired %} منقضی شده{% elif variant.price_validity_unknown %} اعتبار مشخص ندارد{% elif not variant.latest_amount %} ثبت نشده{% else %} قابل سفارش نیست{% endif %} و پیش از سفارش استعلام می‌شود.</small>{% endif %}
+            {% if not variant.price_orderable %}<small class="form-help">سفارش فوری برای این گونه فعال نیست؛ قیمت{% if not variant.latest_amount %} ثبت نشده{% else %} قابل سفارش نیست{% endif %} و پیش از سفارش استعلام می‌شود.</small>{% endif %}
           </form>
+          {% endif %}
           <div class="variant-tools">
             <a class="text-link" href="{% url 'inquiries:quote' %}?variant={{ variant.pk }}">{% icon 'receipt' 'i--sm' %} استعلام قیمت و موجودی</a>
             <a class="text-link" href="{% url 'catalog:price_history' product.slug %}?variant={{ variant.pk }}">{% icon 'chart-line' 'i--sm' %} تاریخچهٔ قیمت</a>

@@ -153,6 +153,12 @@ def cart_add(request, variant_id):
         product__is_active=True,
         product__category__is_active=True,
     )
+    from pricing.selectors import cart_block_reason
+
+    blocked = cart_block_reason(variant)
+    if blocked:
+        messages.error(request, blocked)
+        return redirect(variant.product.get_absolute_url())
     form = CartQuantityForm(request.POST)
     if form.is_valid():
         try:
