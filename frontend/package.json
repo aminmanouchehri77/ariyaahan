@@ -6,7 +6,8 @@
     "build": "npm run check:hero && esbuild src/hero.js --bundle --minify --format=esm --target=es2020 --legal-comments=none --outfile=../static/core/js/hero.js",
     "build:render": "esbuild src/render.js --bundle --format=esm --outfile=build/render.js",
     "build:backdrop": "esbuild src/backdrop.js --bundle --format=esm --outfile=build/backdrop.js",
-    "check:hero": "esbuild scripts/check-hero-layout.mjs --bundle --platform=node --format=esm --outfile=build/check-hero.mjs --log-level=warning && node build/check-hero.mjs"
+    "check:hero": "esbuild scripts/check-hero-layout.mjs --bundle --platform=node --format=esm --outfile=build/check-hero.mjs --log-level=warning && node build/check-hero.mjs",
+    "solve:hero": "esbuild scripts/solve-hero-layout.mjs --bundle --platform=node --format=esm --outfile=build/solve-hero.mjs --log-level=warning && node build/solve-hero.mjs"
   },
   "devDependencies": {
     "esbuild": "0.24.0",

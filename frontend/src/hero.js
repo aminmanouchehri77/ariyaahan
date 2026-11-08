@@ -2,7 +2,7 @@
 // with rising sparks and gentle pointer parallax. Progressive enhancement:
 // the page shows a pre-rendered poster until this module takes over.
 import { THREE, MATERIALS, createRenderer, createStudio } from './steel.js';
-import { FLOAT_AMPLITUDE, TILT_AMPLITUDE, heroLayout } from './hero-layout.js';
+import { CLUSTER_FLOAT, FLOAT_AMPLITUDE, TILT_AMPLITUDE, heroLayout } from './hero-layout.js';
 
 function sparkTexture() {
   const canvas = document.createElement('canvas');
@@ -48,9 +48,9 @@ export function mountHero(container, { onReady } = {}) {
     const mesh = new THREE.Mesh(piece.geometry, materials[piece.material] || (materials[piece.material] = MATERIALS[piece.material]()));
     mesh.position.set(...piece.pos);
     mesh.rotation.set(...piece.rot);
-    // Rebars float together as one bundle so their spacing never changes.
+    // Rebars drift together as one bundle so their spacing never changes.
     const phase = piece.group === 'rebars' ? 3.1 : index * 0.9;
-    const speed = piece.group === 'rebars' ? 0.3 : 0.22 + (index % 3) * 0.07;
+    const speed = piece.group === 'rebars' ? 0.5 : 0.42 + (index % 3) * 0.09;
     mesh.userData = { base: mesh.position.clone(), rot: mesh.rotation.clone(), phase, speed };
     world.add(mesh);
     return mesh;
@@ -66,9 +66,11 @@ export function mountHero(container, { onReady } = {}) {
   const positions = new Float32Array(SPARKS * 3);
   const velocities = new Float32Array(SPARKS * 3);
   const resetSpark = (i, initial = false) => {
-    positions[i * 3] = -2.5 + Math.random() * 3.2;
-    positions[i * 3 + 1] = initial ? -3 + Math.random() * 6 : -2.8;
-    positions[i * 3 + 2] = -1 + Math.random() * 3;
+    // Sparks rise from the lower part of the bundle and drift through it.
+    const size = layoutBox.getSize(new THREE.Vector3());
+    positions[i * 3] = layoutBox.min.x + Math.random() * size.x;
+    positions[i * 3 + 1] = initial ? layoutBox.min.y + Math.random() * size.y : layoutBox.min.y + Math.random() * size.y * 0.35;
+    positions[i * 3 + 2] = layoutCenter.z + 0.6 + Math.random() * 1.6;
     velocities[i * 3] = 0.15 + Math.random() * 0.5;
     velocities[i * 3 + 1] = 0.6 + Math.random() * 1.4;
     velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
@@ -97,15 +99,26 @@ export function mountHero(container, { onReady } = {}) {
     // Keep the composition on the visual (left in RTL) side on wide screens,
     // centred behind the content on narrow ones.
     const wide = width > 900;
-    const scale = wide ? 0.66 : 0.52;
-    const target = wide ? new THREE.Vector3(-2.15, 0.05, 0) : new THREE.Vector3(0.35, 1.0, 0);
+    camera.fov = wide ? 34 : 44;
+    // Fit the bundle into its region of the hero: the left half on wide
+    // screens (text sits on the right in RTL), the upper area on phones.
+    const distance = camera.position.z;
+    const visibleH = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const visibleW = visibleH * camera.aspect;
+    const layoutSize = layoutBox.getSize(new THREE.Vector3());
+    const medium = wide && width < 1240;
+    let region = { w: visibleW * 0.92, h: visibleH * 0.46, x: 0, y: visibleH * 0.2 };
+    if (wide) region = { w: visibleW * 0.4, h: visibleH * 0.8, x: -visibleW * 0.24, y: 0 };
+    if (medium) region = { w: visibleW * 0.3, h: visibleH * 0.62, x: -visibleW * 0.31, y: visibleH * 0.04 };
+    const scale = Math.min(region.w / layoutSize.x, region.h / layoutSize.y);
     world.scale.setScalar(scale);
     world.position.set(
-      target.x - layoutCenter.x * scale,
-      target.y - layoutCenter.y * scale,
+      region.x - layoutCenter.x * scale,
+      region.y - layoutCenter.y * scale,
       -layoutCenter.z * scale,
     );
-    camera.fov = wide ? 34 : 44;
+    world.userData.baseY = world.position.y;
+    world.userData.scale = scale;
     camera.updateProjectionMatrix();
   };
   const observer = new ResizeObserver(resize);
@@ -124,8 +137,10 @@ export function mountHero(container, { onReady } = {}) {
     clock.t += dt;
     pointer.x += (pointer.tx - pointer.x) * 0.04;
     pointer.y += (pointer.ty - pointer.y) * 0.04;
-    world.rotation.y = -pointer.x * 0.12 + Math.sin(clock.t * 0.15) * 0.05;
-    world.rotation.x = pointer.y * 0.06;
+    // The bundle moves as one rigid body, so its pieces keep their spacing.
+    world.rotation.y = -pointer.x * 0.07 + Math.sin(clock.t * 0.15) * 0.03;
+    world.rotation.x = pointer.y * 0.035;
+    world.position.y = world.userData.baseY + Math.sin(clock.t * 0.35) * CLUSTER_FLOAT * world.userData.scale;
     for (const mesh of meshes) {
       const { base, rot, phase, speed } = mesh.userData;
       mesh.position.y = base.y + Math.sin(clock.t * speed + phase) * FLOAT_AMPLITUDE;
@@ -136,7 +151,7 @@ export function mountHero(container, { onReady } = {}) {
       positions[i * 3 + 1] += velocities[i * 3 + 1] * dt;
       positions[i * 3 + 2] += velocities[i * 3 + 2] * dt;
       velocities[i * 3 + 1] -= 0.25 * dt;
-      if (positions[i * 3 + 1] > 3.2 || positions[i * 3 + 1] < -3.2) resetSpark(i);
+      if (positions[i * 3 + 1] > layoutBox.max.y + 0.5 || positions[i * 3 + 1] < layoutBox.min.y - 0.6) resetSpark(i);
     }
     sparkGeometry.attributes.position.needsUpdate = true;
     glow.intensity = 36 + Math.sin(clock.t * 3.1) * 4 + Math.sin(clock.t * 7.3) * 2;
