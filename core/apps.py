@@ -7,6 +7,7 @@ class CoreConfig(AppConfig):
     verbose_name = 'هستهٔ سایت'
 
     def ready(self):
-        from . import audit
+        from . import admin_jalali, audit
 
         audit.connect()
+        admin_jalali.patch()

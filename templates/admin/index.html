@@ -1,0 +1,85 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_dashboard ariaa_tags %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+{% block coltype %}colM{% endblock %}
+{% block bodyclass %}{{ block.super }} dashboard aria-dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block content %}
+{% admin_dashboard as dash %}
+<div id="content-main" class="aria-dash">
+  <section class="aria-welcome">
+    <div>
+      <p class="aria-eyebrow">خوش آمدید، {{ request.user.get_full_name|default:request.user.get_username }}</p>
+      <h1>داشبورد مدیریت</h1>
+      <p>نمای کلی فروش، قیمت و کارهای در انتظار — هر بخش بر اساس دسترسی شما نمایش داده می‌شود.</p>
+    </div>
+    {% if dash.quick %}<div class="aria-quick">{% for item in dash.quick %}<a href="{{ item.url }}">{% icon item.icon %}<span>{{ item.label }}</span></a>{% endfor %}<a href="/" target="_blank" rel="noopener">{% icon 'external-link' %}<span>مشاهدهٔ سایت</span></a></div>{% endif %}
+  </section>
+
+  {% if dash.kpis %}
+  <section class="aria-kpis">
+    {% for kpi in dash.kpis %}
+    <a class="aria-kpi" href="{{ kpi.url }}">
+      <span class="aria-kpi__icon">{% icon kpi.icon %}</span>
+      <strong>{% if kpi.money %}{{ kpi.value|money:'IRR'|cut:' ریال' }}{% else %}{{ kpi.value|fa_digits }}{{ kpi.suffix|default:'' }}{% endif %}</strong>
+      <span>{{ kpi.label }}</span>
+    </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="aria-grid">
+    <section class="aria-card">
+      <header><h2>{% icon 'circle-check' %} کارهای در انتظار</h2></header>
+      {% if dash.tasks %}
+        <ul class="aria-tasks">{% for task in dash.tasks %}<li><a href="{{ task.url }}"><span class="aria-dot aria-dot--{{ task.tone }}"></span><span>{{ task.label }}</span><b>{{ task.value|fa_digits }}</b></a></li>{% endfor %}</ul>
+      {% else %}
+        <p class="aria-empty">{% icon 'sparkles' %} همه‌چیز مرتب است؛ کاری در صف نیست.</p>
+      {% endif %}
+    </section>
+
+    {% if dash.chart %}
+    <section class="aria-card">
+      <header><h2>{% icon 'chart-line' %} سفارش‌های ۱۴ روز اخیر</h2></header>
+      <div class="aria-bars" role="img" aria-label="نمودار تعداد سفارش روزانه">
+        {% for point in dash.chart %}<span style="--h: {{ point.height }}%" title="{{ point.day|jalali_date }}: {{ point.count }}"><i></i>{% if forloop.first or forloop.last %}<em>{{ point.day|jalali_date|slice:'5:' }}</em>{% endif %}</span>{% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if dash.freshness %}
+    <section class="aria-card">
+      <header><h2>{% icon 'timer' %} سلامت قیمت‌ها</h2></header>
+      <div class="aria-gauge" style="--p: {{ dash.freshness.score }}">
+        <div><strong>{{ dash.freshness.score|fa_digits }}٪</strong><span>قیمت معتبر</span></div>
+      </div>
+      <p class="aria-muted">{{ dash.freshness.fresh|fa_digits }} از {{ dash.freshness.total|fa_digits }} گونه قیمت معتبر دارند؛ {{ dash.freshness.stale|fa_digits }} گونه نیازمند ثبت یا تمدید قیمت است.</p>
+    </section>
+    {% endif %}
+
+    {% if dash.recent_orders %}
+    <section class="aria-card aria-card--wide">
+      <header><h2>{% icon 'receipt' %} آخرین سفارش‌ها</h2><a href="{% url 'admin:orders_order_changelist' %}">همه</a></header>
+      <table class="aria-table"><thead><tr><th>سفارش</th><th>مشتری</th><th>مبلغ اقلام</th><th>وضعیت</th><th>زمان</th></tr></thead><tbody>
+      {% for order in dash.recent_orders %}<tr><td><a href="{% url 'admin:orders_order_change' order.pk %}" dir="ltr">{{ order.order_number }}</a></td><td>{{ order.customer|default:'—' }}</td><td>{{ order.total|money:order.currency }}</td><td><span class="aria-pill aria-pill--{{ order.status }}">{{ order.get_status_display }}</span></td><td>{{ order.created_at|jalali_datetime }}</td></tr>{% endfor %}
+      </tbody></table>
+    </section>
+    {% endif %}
+
+    {% if dash.audit %}
+    <section class="aria-card">
+      <header><h2>{% icon 'history' %} آخرین تغییرات</h2><a href="{% url 'admin:core_auditlog_changelist' %}">گزارش کامل</a></header>
+      <ul class="aria-feed">{% for log in dash.audit %}<li><span class="aria-dot aria-dot--{% if log.action == 'delete' %}danger{% elif log.action == 'create' %}success{% else %}info{% endif %}"></span><div><b>{{ log.get_action_display }}</b> {{ log.object_repr|truncatechars:48 }}<small>{{ log.actor|default:'سیستم' }} · {{ log.created_at|jalali_datetime }}</small></div></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </div>
+
+  <h2 class="aria-section-title">بخش‌های مدیریت</h2>
+  <div class="app-list aria-apps">
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  </div>
+</div>
+{% endblock %}
+{% block sidebar %}{% endblock %}

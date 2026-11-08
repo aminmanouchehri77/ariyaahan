@@ -129,10 +129,13 @@ def steel_image(obj=None, size=''):
 def jalali_date(value):
     if not value:
         return ''
+    import datetime as _dt
+
     import jdatetime
 
-    local_value = timezone.localtime(value) if timezone.is_aware(value) else value
-    return jdatetime.date.fromgregorian(date=local_value.date()).strftime('%Y/%m/%d').translate(PERSIAN_DIGITS)
+    if isinstance(value, _dt.datetime):
+        value = (timezone.localtime(value) if timezone.is_aware(value) else value).date()
+    return jdatetime.date.fromgregorian(date=value).strftime('%Y/%m/%d').translate(PERSIAN_DIGITS)
 
 
 @register.filter

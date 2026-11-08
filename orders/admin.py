@@ -132,7 +132,11 @@ def _transition_action(status, label):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('order_number', 'created_at', 'customer', 'status', 'currency', 'shipping_amount')
+    list_display = ('order_label', 'created_at', 'customer', 'status', 'currency', 'shipping_amount')
+
+    @admin.display(description='شمارهٔ سفارش', ordering='pk')
+    def order_label(self, obj):
+        return obj.order_number
     list_filter = ('status', 'currency', 'created_at')
     search_fields = ('public_id', 'customer__mobile', 'preinvoice__customer_name', 'preinvoice__mobile')
     readonly_fields = (

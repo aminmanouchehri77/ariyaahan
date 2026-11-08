@@ -1,9 +1,8 @@
 // Interactive 3D hero: floating steel sections lit by a molten-orange glow,
 // with rising sparks and gentle pointer parallax. Progressive enhancement:
 // the page shows a pre-rendered poster until this module takes over.
-import {
-  THREE, MATERIALS, createRenderer, createStudio, iBeamGeometry, rebarGeometry, tubeGeometry, boxSectionGeometry, angleGeometry,
-} from './steel.js';
+import { THREE, MATERIALS, createRenderer, createStudio } from './steel.js';
+import { FLOAT_AMPLITUDE, TILT_AMPLITUDE, heroLayout } from './hero-layout.js';
 
 function sparkTexture() {
   const canvas = document.createElement('canvas');
@@ -43,26 +42,24 @@ export function mountHero(container, { onReady } = {}) {
   const world = new THREE.Group();
   scene.add(world);
 
-  const pieces = [
-    { geometry: iBeamGeometry(6.5, 0.62, 0.32, 0.045, 0.065), material: MATERIALS.dark(), pos: [1.8, 0.9, -1.2], rot: [0.35, -0.55, 0.62] },
-    { geometry: iBeamGeometry(5.5, 0.5, 0.26), material: MATERIALS.dark(), pos: [3.2, -1.1, -2.6], rot: [-0.2, 0.5, -0.35] },
-    { geometry: boxSectionGeometry(5, 0.36, 0.36, 0.025, 0.035), material: MATERIALS.dark(), pos: [0.2, -1.6, -0.6], rot: [0.1, 0.9, 0.18] },
-    { geometry: tubeGeometry(5, 0.2, 0.02), material: MATERIALS.bright(), pos: [2.6, 2.2, -3.4], rot: [0.5, 0.2, 1.1] },
-    { geometry: angleGeometry(4.6, 0.34, 0.04), material: MATERIALS.mill(), pos: [-1.6, 1.7, -2.8], rot: [-0.4, 0.8, 0.4] },
-  ];
-  const rebar = rebarGeometry(5.2, 0.07);
-  const rebarMaterial = MATERIALS.rebar();
-  for (let i = 0; i < 5; i += 1) {
-    pieces.push({ geometry: rebar, material: rebarMaterial, pos: [0.4 + i * 0.22, 0.2 - i * 0.18, 0.6 - i * 0.12], rot: [0.2, -0.95, -0.42 + i * 0.03] });
-  }
+  const pieces = heroLayout();
+  const materials = {};
   const meshes = pieces.map((piece, index) => {
-    const mesh = new THREE.Mesh(piece.geometry, piece.material);
+    const mesh = new THREE.Mesh(piece.geometry, materials[piece.material] || (materials[piece.material] = MATERIALS[piece.material]()));
     mesh.position.set(...piece.pos);
     mesh.rotation.set(...piece.rot);
-    mesh.userData = { base: mesh.position.clone(), rot: mesh.rotation.clone(), phase: index * 0.7, speed: 0.25 + (index % 3) * 0.08 };
+    // Rebars float together as one bundle so their spacing never changes.
+    const phase = piece.group === 'rebars' ? 3.1 : index * 0.9;
+    const speed = piece.group === 'rebars' ? 0.3 : 0.22 + (index % 3) * 0.07;
+    mesh.userData = { base: mesh.position.clone(), rot: mesh.rotation.clone(), phase, speed };
     world.add(mesh);
     return mesh;
   });
+
+  // Centre the composition on its own bounding box so framing does not
+  // depend on hand-tuned offsets.
+  const layoutBox = new THREE.Box3().setFromObject(world);
+  const layoutCenter = layoutBox.getCenter(new THREE.Vector3());
 
   // Sparks
   const SPARKS = 340;
@@ -100,10 +97,15 @@ export function mountHero(container, { onReady } = {}) {
     // Keep the composition on the visual (left in RTL) side on wide screens,
     // centred behind the content on narrow ones.
     const wide = width > 900;
-    world.position.x = wide ? -2.4 : 0;
-    world.position.y = wide ? 0 : 0.6;
-    world.scale.setScalar(wide ? 1 : 0.72);
-    camera.fov = wide ? 34 : 42;
+    const scale = wide ? 0.66 : 0.52;
+    const target = wide ? new THREE.Vector3(-2.15, 0.05, 0) : new THREE.Vector3(0.35, 1.0, 0);
+    world.scale.setScalar(scale);
+    world.position.set(
+      target.x - layoutCenter.x * scale,
+      target.y - layoutCenter.y * scale,
+      -layoutCenter.z * scale,
+    );
+    camera.fov = wide ? 34 : 44;
     camera.updateProjectionMatrix();
   };
   const observer = new ResizeObserver(resize);
@@ -126,8 +128,8 @@ export function mountHero(container, { onReady } = {}) {
     world.rotation.x = pointer.y * 0.06;
     for (const mesh of meshes) {
       const { base, rot, phase, speed } = mesh.userData;
-      mesh.position.y = base.y + Math.sin(clock.t * speed + phase) * 0.12;
-      mesh.rotation.z = rot.z + Math.sin(clock.t * speed * 0.6 + phase) * 0.03;
+      mesh.position.y = base.y + Math.sin(clock.t * speed + phase) * FLOAT_AMPLITUDE;
+      mesh.rotation.z = rot.z + Math.sin(clock.t * speed * 0.6 + phase) * TILT_AMPLITUDE;
     }
     for (let i = 0; i < SPARKS; i += 1) {
       positions[i * 3] += velocities[i * 3] * dt;

@@ -14,7 +14,16 @@ class RedirectRuleAdmin(admin.ModelAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'actor', 'action', 'model_label', 'object_repr')
+    list_display = ('created_at', 'actor', 'action', 'model_name', 'object_repr')
+
+    @admin.display(description='موجودیت', ordering='model_label')
+    def model_name(self, obj):
+        from django.apps import apps
+
+        try:
+            return apps.get_model(obj.model_label)._meta.verbose_name
+        except (LookupError, ValueError):
+            return obj.model_label
     list_filter = ('action', 'model_label', 'created_at')
     search_fields = ('object_repr', 'object_id', 'actor__username')
     readonly_fields = [field.name for field in AuditLog._meta.fields]

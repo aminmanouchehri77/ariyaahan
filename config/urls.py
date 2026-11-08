@@ -19,6 +19,10 @@ from django.urls import include, path
 
 from core.views import legacy_route
 
+admin.site.site_header = 'پنل مدیریت آهن‌آلات آریا'
+admin.site.site_title = 'مدیریت آریا'
+admin.site.index_title = 'داشبورد'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('account/', include('accounts.urls')),

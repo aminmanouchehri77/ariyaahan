@@ -9,3 +9,18 @@ msgstr "- انتخاب کنید -"
 
 msgid "Select an option"
 msgstr "انتخاب کنید"
+
+msgid "Filter by %(field_name)s"
+msgstr "فیلتر بر اساس %(field_name)s"
+
+msgid "Run"
+msgstr "اجرا"
+
+msgid "Search"
+msgstr "جست‌وجو"
+
+msgid "Model name"
+msgstr "نام مدل"
+
+msgid "Pagination"
+msgstr "صفحه‌بندی"
