@@ -4,7 +4,8 @@
   "description": "Build sources for the 3D hero and the product render pipeline.",
   "scripts": {
     "build": "esbuild src/hero.js --bundle --minify --format=esm --target=es2020 --legal-comments=none --outfile=../static/core/js/hero.js",
-    "build:render": "esbuild src/render.js --bundle --format=esm --outfile=build/render.js"
+    "build:render": "esbuild src/render.js --bundle --format=esm --outfile=build/render.js",
+    "build:backdrop": "esbuild src/backdrop.js --bundle --format=esm --outfile=build/backdrop.js"
   },
   "devDependencies": {
     "esbuild": "0.24.0",
