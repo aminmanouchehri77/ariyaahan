@@ -88,6 +88,7 @@
       </form>
 
       <div class="header-actions">
+        <button class="header-link palette-trigger" type="button" data-palette-open aria-label="جست‌وجوی سریع (Ctrl+K)">{% icon 'sparkles' %}<span class="header-link__text"><small>جست‌وجوی سریع</small><strong dir="ltr">Ctrl K</strong></span></button>
         <button class="header-link search-toggle" type="button" aria-expanded="false" aria-controls="mobile-search" data-search-toggle>{% icon 'search' %}<span class="visually-hidden">جست‌وجو</span></button>
         {% if company_contact_details.phone %}<a class="header-link header-link--phone" href="tel:{{ company_contact_details.phone_uri }}">{% icon 'headset' %}<span class="header-link__text"><small>مشاورهٔ خرید</small><strong dir="ltr">{{ company_contact_details.phone }}</strong></span></a>{% endif %}
         <a class="header-link header-link--account" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'user' %}<span class="header-link__text"><small>{% if request.user.is_authenticated %}خوش آمدید{% else %}مشتریان{% endif %}</small><strong>{% if request.user.is_authenticated %}حساب من{% else %}ورود / ثبت‌نام{% endif %}</strong></span></a>
@@ -233,6 +234,23 @@
     <a class="bottom-nav__item{% if '/cart/' in request.path or '/checkout/' in request.path %} is-active{% endif %}" href="{{ cart_url }}">{% icon 'clipboard-list' %}{% if cart_count %}<b class="bottom-nav__badge">{{ cart_count|fa_digits }}</b>{% endif %}<span>سبد</span></a>
     <a class="bottom-nav__item{% if '/account/' in request.path %} is-active{% endif %}" href="{% if request.user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'user' %}<span>{% if request.user.is_authenticated %}حساب من{% else %}ورود{% endif %}</span></a>
   </nav>
+
+  <dialog class="palette" id="command-palette" aria-label="جست‌وجوی سریع" data-suggestions-url="{% url 'core:search_suggestions' %}" data-search-url="{% url 'core:search' %}">
+    <form method="dialog" class="palette__box" role="search">
+      <div class="palette__input">{% icon 'search' %}<input type="search" placeholder="نام کالا، سایز، کارخانه یا صفحه…" aria-label="جست‌وجوی سریع" autocomplete="off" data-palette-input><kbd>Esc</kbd></div>
+      <div class="palette__results" data-palette-results role="listbox"></div>
+      <div class="palette__quick" data-palette-quick>
+        <span class="palette__label">دسترسی سریع</span>
+        <a href="{% url 'catalog:category_list' %}">{% icon 'chart-line' %} قیمت روز همهٔ محصولات</a>
+        <a href="{% url 'inquiries:quote' %}">{% icon 'receipt' %} استعلام و پیش‌فاکتور</a>
+        <a href="{% url 'orders:cart' %}">{% icon 'clipboard-list' %} سبد پیش‌فاکتور</a>
+        <a href="{% url 'core:weight_calculator' %}">{% icon 'weight' %} محاسبه‌گر وزن</a>
+        <a href="{% url 'content:market_news_list' %}">{% icon 'trending-up' %} اخبار تغییر قیمت</a>
+        <a href="{% if request.user.is_authenticated %}{% url 'orders:project_list' %}{% else %}{% url 'accounts:login' %}{% endif %}">{% icon 'boxes' %} فهرست‌های خرید پروژه</a>
+      </div>
+      <p class="palette__hint"><kbd>↑</kbd><kbd>↓</kbd> جابه‌جایی · <kbd>Enter</kbd> باز کردن · <kbd>Ctrl</kbd>+<kbd>K</kbd> باز کردن از هر صفحه</p>
+    </form>
+  </dialog>
   <button class="to-top" type="button" data-to-top aria-label="بازگشت به بالای صفحه">{% icon 'arrow-up-left' %}</button>
   <script src="{% static 'core/js/site.js' %}" defer></script>
   {% block extra_js %}{% endblock %}

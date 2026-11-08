@@ -1,13 +1,14 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}بدون اتصال | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}برای دیدن اطلاعات تازهٔ کالا و قیمت‌ها، اتصال اینترنت را برقرار کنید.{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
 
 {% block content %}
-<section class="offline-page">
+<section class="section offline-page">
   <div class="container offline-card">
-    <span class="offline-mark" aria-hidden="true">آ</span>
+    <img src="{% static 'core/brand/emblem.svg' %}" alt="" width="76" height="76">
     <p class="eyebrow eyebrow--dark">اتصال اینترنت در دسترس نیست</p>
     <h1>قیمت‌ها را آفلاین نشان نمی‌دهیم</h1>
     <p>برای اینکه اطلاعات قدیمی با قیمت روز اشتباه نشود، این صفحه به‌جای نمایش قیمت ذخیره‌شده، وضعیت اتصال را اعلام می‌کند.</p>

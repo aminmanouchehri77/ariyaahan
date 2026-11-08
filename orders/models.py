@@ -357,3 +357,44 @@ class PaymentRecord(models.Model):
     def res_num(self):
         """Merchant reference sent to SEP as ResNum (32 hex characters)."""
         return self.idempotency_key.hex
+
+
+class ProjectList(models.Model):
+    """A customer's saved bill of materials for a construction project."""
+
+    profile = models.ForeignKey(
+        'accounts.CustomerProfile', verbose_name='مشتری', related_name='projects', on_delete=models.CASCADE,
+    )
+    public_id = models.UUIDField('شناسهٔ اشتراک', default=uuid.uuid4, unique=True, editable=False)
+    title = models.CharField('نام پروژه', max_length=120)
+    note = models.CharField('یادداشت', max_length=300, blank=True)
+    is_shared = models.BooleanField('اشتراک با پیوند خصوصی', default=False)
+    created_at = models.DateTimeField('زمان ایجاد', auto_now_add=True)
+    updated_at = models.DateTimeField('آخرین تغییر', auto_now=True)
+
+    class Meta:
+        verbose_name = 'فهرست خرید پروژه'
+        verbose_name_plural = 'فهرست‌های خرید پروژه'
+        ordering = ('-updated_at', '-pk')
+
+    def __str__(self):
+        return self.title
+
+
+class ProjectListItem(models.Model):
+    project = models.ForeignKey(ProjectList, verbose_name='پروژه', related_name='items', on_delete=models.CASCADE)
+    variant = models.ForeignKey('catalog.ProductVariant', verbose_name='گونهٔ کالا', on_delete=models.CASCADE)
+    quantity = models.DecimalField(
+        'مقدار', max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
+    )
+    note = models.CharField('یادداشت', max_length=160, blank=True)
+    added_at = models.DateTimeField('زمان افزودن', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'قلم فهرست پروژه'
+        verbose_name_plural = 'اقلام فهرست پروژه'
+        ordering = ('added_at', 'pk')
+        constraints = [models.UniqueConstraint(fields=('project', 'variant'), name='unique_project_variant')]
+
+    def __str__(self):
+        return f'{self.project} — {self.variant}'

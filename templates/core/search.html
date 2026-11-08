@@ -1,23 +1,33 @@
 {% extends 'base.html' %}
 {% load ariaa_tags %}
 {% block title %}{% if query %}نتیجهٔ جست‌وجوی {{ query }} | {% endif %}جست‌وجوی کالا | آهن‌آلات آریا{% endblock %}
-{% block meta_description %}جست‌وجوی نام کالا، سایز، گرید و دسته‌بندی محصولات فولادی در کاتالوگ آهن‌آلات آریا.{% endblock %}
+{% block meta_description %}جست‌وجوی نام کالا، سایز، گرید، کارخانه و دسته‌بندی محصولات فولادی در کاتالوگ آهن‌آلات آریا.{% endblock %}
 {% block robots_meta %}noindex, follow{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>جست‌وجوی کالا</span></nav><p class="eyebrow eyebrow--dark">جست‌وجوی کاتالوگ</p><h1>کالای موردنظرتان را پیدا کنید</h1><p>نام، سایز، گرید یا دستهٔ محصول را وارد کنید.</p></div></section>
-<section class="section content-section"><div class="container narrow-container">
-  <form class="filter-panel search-page-form" action="{% url 'core:search' %}" method="get">
-    <label for="search-query">عبارت جست‌وجو</label><div class="filter-panel__row"><input id="search-query" type="search" name="q" value="{{ query }}" placeholder="مثلاً میلگرد ۱۲"><button class="button button--navy" type="submit">جست‌وجو</button></div>
+<section class="page-hero"><div class="container narrow-container">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>جست‌وجو</span></nav>
+  <p class="eyebrow">جست‌وجوی هوشمند کاتالوگ</p>
+  <h1>{% if query %}نتایج «{{ query }}»{% else %}کالای موردنظرتان را پیدا کنید{% endif %}</h1>
+  <form class="hero-search" action="{% url 'core:search' %}" method="get" role="search" style="margin-top:18px">
+    {% icon 'search' %}<label class="visually-hidden" for="search-query">عبارت جست‌وجو</label>
+    <input id="search-query" type="search" name="q" value="{{ query }}" placeholder="نام کالا، سایز، گرید یا کارخانه">
+    <button type="submit">جست‌وجو</button>
   </form>
+  <p class="muted" style="margin-top:10px;color:var(--steel-400)">حروف عربی/فارسی، اعداد فارسی و نیم‌فاصله یکسان در نظر گرفته می‌شوند و غلط تایپی رایج اصلاح می‌شود.</p>
+</div></section>
+<section class="section content-section"><div class="container narrow-container">
   {% if query %}
-    <div class="results-heading"><h2>نتایج برای «{{ query }}»</h2><span>{{ products|length|fa_digits }} مورد</span></div>
+    {% if suggestion %}<div class="flash flash--info" style="margin-bottom:16px">{% icon 'sparkles' %}<span>منظورتان «<a class="text-link" href="?q={{ suggestion|urlencode }}">{{ suggestion }}</a>» بود؟ {% if products %}نتایج زیر برای همین عبارت است.{% endif %}</span></div>{% endif %}
+    {% if matched_categories %}<nav class="chip-row" aria-label="دسته‌های مرتبط">{% for category in matched_categories %}<a href="{{ category.get_absolute_url }}">{% icon 'layers' 'i--sm' %} قیمت {{ category.name }}</a>{% endfor %}</nav>{% endif %}
+    <div class="results-heading"><h2>محصولات</h2><span>{{ products|length|fa_digits }} مورد</span></div>
     {% if products %}<div class="result-list">
       {% for product in products %}
-      <a class="result-card" href="{{ product.get_absolute_url }}"><span class="result-card__mark">{{ product.category.name|slice:':1' }}</span><span><strong>{{ product.name }}</strong><small>{{ product.category.name }}{% if product.summary %} · {{ product.summary }}{% endif %}</small></span><b aria-hidden="true">←</b></a>
+      <a class="result-card search-result" href="{{ product.get_absolute_url }}"><img src="{% steel_image product 'sm' %}" alt="" width="96" height="72" loading="lazy"><span><strong>{{ product.name }}</strong><small>{{ product.category.name }}{% if product.summary %} · {{ product.summary }}{% endif %}</small></span><span class="category-card__go">{% icon 'arrow-left' 'i--sm' %}</span></a>
       {% endfor %}
-    </div>{% else %}<div class="empty-state"><strong>نتیجه‌ای پیدا نشد</strong><p>املای کالا یا سایز را تغییر دهید یا دسته‌های اصلی را مرور کنید.</p><a class="text-link" href="{% url 'catalog:category_list' %}">دیدن دسته‌ها ←</a></div>{% endif %}
+    </div>{% else %}<div class="empty-state"><span class="empty-state__icon">{% icon 'search' %}</span><strong>نتیجه‌ای پیدا نشد</strong><p>عبارت کوتاه‌تری بنویسید یا برای تأمین این کالا مستقیم استعلام بگیرید.</p><div class="alert-actions" style="justify-content:center"><a class="button button--gold" href="{% url 'inquiries:quote' %}">{% icon 'receipt' %} استعلام از کارشناس</a><a class="button button--outline" href="{% url 'catalog:category_list' %}">دیدن دسته‌ها</a></div></div>{% endif %}
   {% else %}
-    <div class="empty-state"><strong>جست‌وجو را شروع کنید</strong><p>نام کالا، سایز یا گرید را بنویسید تا کاتالوگ بررسی شود.</p><a class="text-link" href="{% url 'catalog:category_list' %}">مرور دسته‌بندی‌ها ←</a></div>
+    <div class="results-heading"><h2>جست‌وجوهای پرتکرار</h2></div>
+    <nav class="chip-row">{% for category in navigation_categories %}<a href="{{ category.get_absolute_url }}">{{ category.name }}</a>{% endfor %}</nav>
   {% endif %}
 </div></section>
 {% endblock %}

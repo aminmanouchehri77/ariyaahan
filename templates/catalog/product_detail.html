@@ -41,7 +41,7 @@
         {% for variant in variants %}
         <article class="variant-card" id="variant-{{ variant.pk }}">
           <div class="variant-card__heading">
-            <div><h3>{{ variant.name }}</h3><p>{% icon 'factory' 'i--sm' %} {% if variant.manufacturer %}{{ variant.manufacturer }}{% else %}کارخانه مشخص نشده{% endif %}{% if variant.sku %} · <span dir="ltr">{{ variant.sku }}</span>{% endif %}</p></div>
+            <div><h3>{{ variant.name }}{% if variant.is_best_price %} <span class="best-badge">{% icon 'award' %} ارزان‌ترین کارخانه در این سایز</span>{% endif %}</h3><p>{% icon 'factory' 'i--sm' %} {% if variant.manufacturer %}{{ variant.manufacturer }}{% else %}کارخانه مشخص نشده{% endif %}{% if variant.sku %} · <span dir="ltr">{{ variant.sku }}</span>{% endif %}</p></div>
             <span class="tag {% if variant.latest_amount and not variant.price_expired and not variant.price_validity_unknown and variant.latest_available %}tag--available{% elif variant.price_expired or variant.price_validity_unknown %}tag--stale{% else %}tag--neutral{% endif %}">{% if not variant.latest_amount %}نیازمند استعلام{% elif variant.price_expired %}قیمت منقضی{% elif variant.price_validity_unknown %}اعتبار نامشخص{% elif variant.latest_available %}قیمت معتبر{% else %}در ثبت قیمت ناموجود{% endif %}</span>
           </div>
           <dl class="spec-grid">
@@ -57,6 +57,8 @@
             <span>قیمت ثبت‌شده{% if variant.latest_unit_label or variant.latest_amount %} — هر {{ variant.latest_unit_label|default:variant.get_unit_display }}{% endif %}</span>
             <strong>{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}برای قیمت استعلام بگیرید{% endif %}</strong>
             {% if variant.latest_observed_at %}<small>{% icon 'clock' 'i--sm' %} آخرین ثبت: {{ variant.latest_observed_at|jalali_datetime }}{% if variant.latest_valid_until %} · اعتبار تا {{ variant.latest_valid_until|jalali_datetime }}{% elif variant.latest_amount %} · اعتبار پیش از سفارش تأیید می‌شود{% endif %}</small>{% endif %}
+            {% if variant.piece_price %}<span class="piece-price">{% icon 'calculator' 'i--sm' %} قیمت تقریبی هر شاخه/واحد (وزن مرجع {{ variant.weight_per_unit_kg|floatformat:-3|fa_digits }} kg): <b>{{ variant.piece_price|money:variant.latest_currency }}</b></span>{% endif %}
+            {% if variant.spark %}<span class="piece-price">{% sparkline variant %} روند آخرین ثبت‌ها{% if variant.spark_change %}: {{ variant.spark_change|percent_fa }}{% endif %}</span>{% endif %}
             {% if variant.latest_location or variant.latest_source %}<small>{% icon 'map-pin' 'i--sm' %} {% if variant.latest_location %}تحویل: {{ variant.latest_location }}{% endif %}{% if variant.latest_source %} · منبع: {{ variant.latest_source }}{% endif %}{% if variant.latest_tax_included %} · با احتساب مالیات{% elif variant.latest_tax_included == False %} · بدون مالیات{% endif %}</small>{% endif %}
           </div>
           <form class="cart-add-form" method="post" action="{% url 'orders:cart_add' variant.pk %}">
@@ -73,6 +75,18 @@
             <form method="post" action="{% url 'catalog:compare_add' variant.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="text-link" type="submit">{% icon 'columns-3' 'i--sm' %} افزودن به مقایسه</button></form>
             {% if request.user.is_authenticated %}<a class="text-link" href="{% url 'accounts:price_alerts' %}?variant={{ variant.pk }}">{% icon 'bell' 'i--sm' %} هشدار قیمت</a>{% endif %}
           </div>
+          {% if request.user.is_authenticated %}
+          <details class="project-save">
+            <summary class="text-link">{% icon 'boxes' 'i--sm' %} ذخیره در فهرست خرید پروژه</summary>
+            <form method="post" action="{% url 'orders:project_add_item' variant.pk %}" class="project-save__form">
+              {% csrf_token %}
+              <label class="form-field"><span>پروژه</span><select name="project" class="form-control">{% for project in projects %}<option value="{{ project.public_id }}">{{ project.title }}</option>{% endfor %}<option value="new">+ پروژهٔ جدید</option></select></label>
+              <label class="form-field"><span>نام پروژهٔ جدید (اختیاری)</span><input class="form-control" type="text" name="title" maxlength="120" placeholder="مثلاً ساختمان ۴ طبقه"></label>
+              <label class="form-field"><span>مقدار ({{ variant.get_unit_display }})</span><input class="form-control" type="number" name="quantity" value="1" min="0.001" step="0.001" inputmode="decimal"></label>
+              <button class="button button--navy button--sm" type="submit">ذخیره</button>
+            </form>
+          </details>
+          {% endif %}
         </article>
         {% endfor %}
       </div>{% else %}<div class="empty-state"><span class="empty-state__icon">{% icon 'package' %}</span><strong>گونه‌ای برای این محصول ثبت نشده</strong><p>مشخصات و گزینه‌های فروش پس از تأیید اطلاعات محصول اضافه می‌شوند.</p><a class="button button--gold" href="{% url 'inquiries:quote' %}">استعلام از کارشناس</a></div>{% endif %}
@@ -92,7 +106,7 @@
   </div>
 </section>
 
-{% if product.description %}<section class="section description-section"><div class="container narrow-container"><div class="section-heading section-heading--compact"><div><p class="eyebrow eyebrow--dark">راهنمای خرید</p><h2>دربارهٔ {{ product.name }}</h2></div></div><div class="prose">{{ product.description|linebreaks }}</div></div></section>{% endif %}
+{% if product.description %}<section class="section description-section"><div class="container narrow-container"><div class="section-heading section-heading--compact"><div><p class="eyebrow eyebrow--dark">راهنمای خرید</p><h2>دربارهٔ {{ product.name }}</h2></div></div><div class="prose">{{ product.description|rich_text }}</div></div></section>{% endif %}
 
 <section class="section description-section" id="product-reviews"><div class="container narrow-container">
   <div class="section-heading section-heading--compact"><div><p class="eyebrow eyebrow--dark">تجربهٔ خریداران</p><h2>دیدگاه‌ها</h2></div>{% if review_count %}<p class="review-summary">{% icon 'star' %} <strong>{{ review_average|floatformat:1|fa_digits }}</strong> از ۵ · {{ review_count|fa_digits }} دیدگاه</p>{% else %}<p class="review-summary">هنوز دیدگاهی ثبت نشده است.</p>{% endif %}</div>

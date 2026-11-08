@@ -1,0 +1,11 @@
+# Project-level Persian overrides for strings missing from Django's catalogue.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fa\n"
+
+msgid "- Select an option -"
+msgstr "- انتخاب کنید -"
+
+msgid "Select an option"
+msgstr "انتخاب کنید"

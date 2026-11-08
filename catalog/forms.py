@@ -8,7 +8,7 @@ from .models import Manufacturer
 
 class CategoryFilterForm(forms.Form):
     size = forms.CharField(label='سایز', max_length=80, required=False)
-    manufacturer = forms.ModelChoiceField(label='کارخانه', queryset=Manufacturer.objects.none(), required=False)
+    manufacturer = forms.ModelChoiceField(label='کارخانه', queryset=Manufacturer.objects.none(), required=False, empty_label='همهٔ کارخانه‌ها')
     grade = forms.CharField(label='گرید', max_length=80, required=False)
     standard = forms.CharField(label='استاندارد', max_length=100, required=False)
     location = forms.CharField(label='محل تحویل', max_length=140, required=False)

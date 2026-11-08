@@ -108,3 +108,37 @@ class MarketplaceListing(models.Model):
 
     def __str__(self):
         return f'{self.get_kind_display()} — {self.product_label} — {self.get_status_display()}'
+
+
+class ListingReport(models.Model):
+    """Abuse/incorrect-data report raised by a visitor against a public listing."""
+
+    class Reason(models.TextChoices):
+        WRONG_PRICE = 'price', 'قیمت یا مقدار غیرواقعی'
+        FAKE = 'fake', 'آگهی جعلی یا تکراری'
+        UNAVAILABLE = 'sold', 'کالا دیگر موجود نیست'
+        CONTACT = 'contact', 'رفتار نامناسب در تماس'
+        OTHER = 'other', 'سایر موارد'
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'در انتظار بررسی'
+        ACCEPTED = 'accepted', 'تأیید و اقدام‌شده'
+        DISMISSED = 'dismissed', 'رد شد'
+
+    listing = models.ForeignKey(MarketplaceListing, verbose_name='آگهی', related_name='reports', on_delete=models.CASCADE)
+    reason = models.CharField('دلیل گزارش', max_length=10, choices=Reason.choices)
+    details = models.CharField('توضیح', max_length=400, blank=True)
+    reporter_key = models.CharField('شناسهٔ ناشناس گزارش‌دهنده', max_length=64, editable=False)
+    status = models.CharField('وضعیت', max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)
+    created_at = models.DateTimeField('زمان گزارش', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'گزارش تخلف آگهی'
+        verbose_name_plural = 'گزارش‌های تخلف آگهی'
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(fields=('listing', 'reporter_key'), name='one_report_per_reporter'),
+        ]
+
+    def __str__(self):
+        return f'{self.listing_id} — {self.get_reason_display()}'

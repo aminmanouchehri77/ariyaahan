@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
@@ -76,4 +78,77 @@ def mark_stock_state(variants):
             variant.stock_status = 'موجود'
         else:
             variant.stock_status = 'ناموجود'
+    return variants
+
+
+def attach_sparklines(variants, points=12):
+    """Attach `variant.spark` (SVG polyline points) and `variant.spark_trend`.
+
+    Uses one query for all variants; only approved prices with the same
+    currency/basis as the latest one are plotted, so the line is comparable.
+    """
+    from collections import defaultdict
+
+    ids = [variant.pk for variant in variants]
+    if not ids:
+        return variants
+    rows = defaultdict(list)
+    for variant_id, amount, currency, basis in PriceObservation.objects.filter(
+        variant_id__in=ids, status=PriceObservation.Status.APPROVED,
+    ).order_by('variant_id', '-observed_at', '-pk').values_list('variant_id', 'amount', 'currency', 'price_basis'):
+        series = rows[variant_id]
+        if len(series) >= points:
+            continue
+        if series and (series[0][1], series[0][2]) != (currency, basis):
+            continue
+        series.append((amount, currency, basis))
+    for variant in variants:
+        amounts = [row[0] for row in reversed(rows.get(variant.pk, []))]
+        variant.spark = ''
+        variant.spark_trend = ''
+        if len(amounts) < 2:
+            continue
+        low, high = min(amounts), max(amounts)
+        span = (high - low) or 1
+        step = 100 / (len(amounts) - 1)
+        variant.spark = ' '.join(
+            f'{round(index * step, 1)},{round(28 - float((amount - low) / span) * 24, 1)}'
+            for index, amount in enumerate(amounts)
+        )
+        variant.spark_trend = 'up' if amounts[-1] > amounts[-2] else ('down' if amounts[-1] < amounts[-2] else 'flat')
+        variant.spark_change = ((amounts[-1] - amounts[-2]) * 100 / amounts[-2]).quantize(Decimal('0.01')) if amounts[-2] else None
+    return variants
+
+
+def mark_best_prices(variants):
+    """Flag the cheapest currently-valid price for each size/unit group."""
+    groups = {}
+    for variant in variants:
+        variant.is_best_price = False
+        if (
+            variant.latest_amount is None or not variant.latest_available
+            or getattr(variant, 'price_expired', False) or getattr(variant, 'price_validity_unknown', False)
+        ):
+            continue
+        key = ((variant.size or '').strip(), variant.latest_currency, variant.latest_price_basis, variant.product_id)
+        groups.setdefault(key, []).append(variant)
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        best = min(members, key=lambda item: item.latest_amount)
+        best.is_best_price = True
+    return variants
+
+
+def attach_unit_prices(variants):
+    """Approximate price per piece for kg/ton-priced variants with a known unit weight."""
+    for variant in variants:
+        variant.piece_price = None
+        weight = variant.weight_per_unit_kg
+        if not weight or variant.latest_amount is None:
+            continue
+        if variant.latest_price_basis == 'kg':
+            variant.piece_price = (variant.latest_amount * weight).quantize(Decimal('1'))
+        elif variant.latest_price_basis == 'ton':
+            variant.piece_price = (variant.latest_amount * weight / 1000).quantize(Decimal('1'))
     return variants

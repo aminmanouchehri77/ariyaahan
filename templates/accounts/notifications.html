@@ -1,24 +1,12 @@
-{% extends 'base.html' %}
+{% extends 'accounts/_layout.html' %}
 {% load ariaa_tags %}
 {% block title %}اعلان‌های حساب | آهن‌آلات آریا{% endblock %}
-{% block meta_description %}اعلان‌های مربوط به سفارش‌ها، درخواست‌ها و هشدارهای قیمت حساب مشتری.{% endblock %}
-{% block robots_meta %}noindex, nofollow{% endblock %}
-{% block content %}
-<section class="page-hero">
-  <div class="container">
-    <nav class="breadcrumbs" aria-label="مسیر صفحه">
-      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
-      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
-      <span>اعلان‌ها</span>
-    </nav>
-    <p class="eyebrow eyebrow--dark">صندوق حساب مشتری</p>
-    <h1>اعلان‌های شما</h1>
-    <p>تغییر وضعیت سفارش‌ها، درخواست‌ها و هشدارهای قیمت را اینجا دنبال کنید.</p>
-  </div>
-</section>
-<section class="section content-section">
-  <div class="container narrow-container">
-    <div class="account-links" aria-label="فیلتر اعلان‌ها">
+{% block account_crumbs %}<span>/</span><span>اعلان‌ها</span>{% endblock %}
+{% block account_icon %}{% icon 'message-circle' %}{% endblock %}
+{% block account_title %}اعلان‌های شما{% endblock %}
+{% block account_lead %}تغییر وضعیت سفارش‌ها، درخواست‌ها و هشدارهای قیمت.{% endblock %}
+{% block account_content %}
+    <div class="segmented" aria-label="فیلتر اعلان‌ها">
       <a class="button {% if status_filter == 'all' %}button--navy{% else %}button--outline{% endif %}" href="{% url 'accounts:notifications' %}">همه</a>
       <a class="button {% if status_filter == 'unread' %}button--navy{% else %}button--outline{% endif %}" href="{% url 'accounts:notifications' %}?status=unread">خوانده‌نشده‌ها ({{ unread_count|fa_digits }})</a>
     </div>
@@ -30,9 +18,9 @@
       </form>
     {% endif %}
     {% if page_obj.object_list %}
-      <ul class="account-notifications">
+      <ul class="account-notifications notice-list">
         {% for notification in page_obj.object_list %}
-          <li{% if not notification.is_read %} class="is-unread"{% endif %}>
+          <li class="notice{% if not notification.is_read %} is-unread{% endif %}">
             <strong>{{ notification.title }}</strong>
             <p>{{ notification.body }}</p>
             <small>{{ notification.get_kind_display }} · {{ notification.created_at|jalali_datetime }}</small>
@@ -61,11 +49,9 @@
         </nav>
       {% endif %}
     {% else %}
-      <div class="empty-state">
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'message-circle' %}</span>
         <strong>{% if status_filter == 'unread' %}اعلان خوانده‌نشده‌ای ندارید{% else %}هنوز اعلانی ندارید{% endif %}</strong>
         <p>با ثبت تغییر در سفارش‌ها یا هشدار قیمت، اعلان‌های مرتبط در این بخش نمایش داده می‌شوند.</p>
       </div>
     {% endif %}
-  </div>
-</section>
 {% endblock %}

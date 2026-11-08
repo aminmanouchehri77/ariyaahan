@@ -11,14 +11,15 @@
       <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
       <span>پیگیری درخواست</span>
     </nav>
-    <p class="eyebrow eyebrow--dark">پیگیری خصوصی</p>
+    <span class="page-hero__icon">{% icon 'eye' %}</span>
+    <p class="eyebrow">پیگیری خصوصی</p>
     <h1>وضعیت درخواست شما</h1>
     <p>شناسهٔ پیگیری: <strong dir="ltr">{{ inquiry.public_id }}</strong></p>
   </div>
 </section>
 <section class="section content-section">
   <div class="container narrow-container">
-    <div class="result-card">
+    <div class="account-card">
       <dl class="spec-grid">
         <div><dt>نوع درخواست</dt><dd>{{ inquiry.get_kind_display }}</dd></div>
         <div><dt>وضعیت</dt><dd>{{ inquiry.get_status_display }}</dd></div>

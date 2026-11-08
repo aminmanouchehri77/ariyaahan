@@ -76,6 +76,18 @@
       <div><p class="eyebrow eyebrow--dark">تابلوی بازار</p><h2 id="market-title">قیمت‌های امروز</h2><p class="section-intro">فقط قیمت‌های تأییدشده با زمان ثبت و مهلت اعتبار؛ قیمت منقضی با برچسب مشخص می‌شود.</p></div>
       <a class="text-link" href="{% url 'catalog:category_list' %}">همهٔ قیمت‌ها {% icon 'arrow-left' 'i--sm' %}</a>
     </div>
+    {% if market_pulse %}
+    <div class="pulse-grid" aria-label="نبض بازار هفتهٔ اخیر">
+      {% for pulse in market_pulse %}
+      <a class="pulse-card" href="{{ pulse.category.get_absolute_url }}" data-reveal style="--reveal-delay: {% widthratio forloop.counter0 1 60 %}ms">
+        <img src="{% steel_image pulse.category 'sm' %}" alt="" width="58" height="44" loading="lazy">
+        <strong>{{ pulse.category.name }}</strong>
+        <span class="trend {% if pulse.average > 0 %}trend--rising{% elif pulse.average < 0 %}trend--falling{% else %}trend--unchanged{% endif %}">{% if pulse.average > 0 %}{% icon 'trending-up' 'i--sm' %}{% elif pulse.average < 0 %}{% icon 'trending-down' 'i--sm' %}{% else %}{% icon 'minus' 'i--sm' %}{% endif %} {{ pulse.average|percent_fa }}</span>
+        <small>{{ pulse.rising|fa_digits }} افزایش · {{ pulse.falling|fa_digits }} کاهش در ۷ روز</small>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="market-board" data-reveal>
       <div class="market-board__head">
         <div class="market-board__title">{% icon 'chart-line' 'i--lg' %}<div><strong>آخرین قیمت‌های ثبت‌شده</strong><br><span class="market-status"><i></i> داده‌های تأییدشده توسط کارشناس قیمت</span></div></div>
@@ -90,7 +102,7 @@
             <tr>
               <td data-label="محصول"><a class="table-product" href="{{ variant.product.get_absolute_url }}"><img src="{% steel_image variant 'sm' %}" alt="" width="64" height="48" loading="lazy"><span><strong>{{ variant.product.name }}</strong><small>{{ variant.name }}</small></span></a></td>
               <td data-label="کارخانه / مشخصات">{{ variant.manufacturer|default:'—' }}{% if variant.size %}<small class="table-sub">سایز {{ variant.size }}{% if variant.grade %} · {{ variant.grade }}{% endif %}</small>{% endif %}</td>
-              <td class="price-cell" data-label="قیمت">{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}استعلام{% endif %}<small>هر {{ variant.latest_unit_label|default:variant.get_unit_display }}</small></td>
+              <td class="price-cell" data-label="قیمت">{% if variant.latest_amount %}{{ variant.latest_amount|money:variant.latest_currency }}{% else %}استعلام{% endif %}<small>هر {{ variant.latest_unit_label|default:variant.get_unit_display }}</small>{% sparkline variant %}</td>
               <td data-label="زمان ثبت">{% if variant.latest_observed_at %}<time datetime="{{ variant.latest_observed_at|date:'c' }}">{{ variant.latest_observed_at|jalali_datetime }}</time>{% else %}—{% endif %}{% if variant.latest_location %}<small class="table-sub">تحویل: {{ variant.latest_location }}</small>{% endif %}</td>
               <td data-label="وضعیت">{% if not variant.latest_amount %}<span class="tag tag--neutral">بدون قیمت</span>{% elif variant.price_expired %}<span class="tag tag--stale">قیمت منقضی</span>{% elif variant.price_validity_unknown %}<span class="tag tag--stale">اعتبار نامشخص</span>{% elif variant.latest_available %}<span class="tag tag--available">قابل سفارش</span>{% else %}<span class="tag tag--neutral">ناموجود</span>{% endif %}<small class="table-sub">موجودی: {{ variant.stock_status }}</small></td>
               <td data-label="جزئیات"><a class="table-action" href="{{ variant.product.get_absolute_url }}">جزئیات {% icon 'arrow-left' 'i--sm' %}</a></td>

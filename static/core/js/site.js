@@ -425,3 +425,125 @@
     section.hidden = true;
   }
 })();
+
+(() => {
+  const dialog = document.querySelector('#command-palette');
+  if (!dialog || typeof dialog.showModal !== 'function') return;
+  const input = dialog.querySelector('[data-palette-input]');
+  const results = dialog.querySelector('[data-palette-results]');
+  const quick = dialog.querySelector('[data-palette-quick]');
+  let timer;
+  let active = -1;
+  const open = () => {
+    if (dialog.open) return;
+    dialog.showModal();
+    input.value = '';
+    results.replaceChildren();
+    quick.hidden = false;
+    setTimeout(() => input.focus(), 30);
+  };
+  const options = () => [...results.querySelectorAll('a'), ...(quick.hidden ? [] : quick.querySelectorAll('a'))];
+  const highlight = (index) => {
+    const list = options();
+    if (!list.length) return;
+    active = (index + list.length) % list.length;
+    list.forEach((item, i) => item.setAttribute('aria-selected', String(i === active)));
+    list[active].scrollIntoView({ block: 'nearest' });
+  };
+  const render = (items) => {
+    results.replaceChildren();
+    active = -1;
+    if (items.length && items[0].corrected) {
+      const note = document.createElement('div');
+      note.className = 'palette__corrected';
+      note.textContent = `نتایج برای «${items[0].corrected}»`;
+      results.append(note);
+    }
+    items.forEach((item) => {
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.setAttribute('role', 'option');
+      const text = document.createElement('span');
+      const strong = document.createElement('strong');
+      strong.textContent = item.label;
+      const small = document.createElement('small');
+      small.textContent = item.detail || '';
+      text.append(strong, small);
+      link.append(text);
+      results.append(link);
+    });
+    const all = document.createElement('a');
+    all.href = `${dialog.dataset.searchUrl}?q=${encodeURIComponent(input.value.trim())}`;
+    all.textContent = `همهٔ نتایج برای «${input.value.trim()}»`;
+    results.append(all);
+    quick.hidden = true;
+  };
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const query = input.value.trim();
+    if (query.length < 2) {
+      results.replaceChildren();
+      quick.hidden = false;
+      return;
+    }
+    timer = setTimeout(async () => {
+      try {
+        const url = new URL(dialog.dataset.suggestionsUrl, window.location.origin);
+        url.searchParams.set('q', query);
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (response.ok) render((await response.json()).results || []);
+      } catch (_) { /* offline */ }
+    }, 160);
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); highlight(active + 1); }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); highlight(active - 1); }
+    else if (event.key === 'Enter') {
+      event.preventDefault();
+      const list = options();
+      if (active >= 0 && list[active]) window.location.assign(list[active].href);
+      else if (input.value.trim()) window.location.assign(`${dialog.dataset.searchUrl}?q=${encodeURIComponent(input.value.trim())}`);
+    }
+  });
+  dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+  document.querySelectorAll('[data-palette-open]').forEach((button) => button.addEventListener('click', open));
+  document.addEventListener('keydown', (event) => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
+    if ((event.ctrlKey || event.metaKey) && (event.code === 'KeyK' || event.key.toLowerCase() === 'k')) { event.preventDefault(); open(); }
+    else if (event.key === '/' && !typing) { event.preventDefault(); open(); }
+  });
+})();
+
+document.addEventListener('submit', (event) => {
+  const trigger = event.submitter;
+  if (trigger?.dataset.confirm && !window.confirm(trigger.dataset.confirm)) event.preventDefault();
+});
+
+(() => {
+  const bar = document.querySelector('[data-reading-progress]');
+  if (!bar) return;
+  const update = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`;
+  };
+  window.addEventListener('scroll', update, { passive: true });
+  update();
+})();
+(() => {
+  const input = document.querySelector('[data-faq-filter]');
+  const list = document.querySelector('[data-faq-list]');
+  if (!input || !list) return;
+  const empty = document.querySelector('[data-faq-empty]');
+  const norm = (text) => text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').toLowerCase();
+  input.addEventListener('input', () => {
+    const query = norm(input.value.trim());
+    let shown = 0;
+    list.querySelectorAll('.faq-item').forEach((item) => {
+      const match = !query || norm(item.textContent).includes(query);
+      item.hidden = !match;
+      if (match) shown += 1;
+      if (query && match) item.open = true;
+    });
+    if (empty) empty.hidden = shown > 0;
+  });
+})();

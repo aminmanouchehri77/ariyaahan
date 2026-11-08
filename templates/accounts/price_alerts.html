@@ -1,13 +1,36 @@
-{% extends 'base.html' %}
+{% extends 'accounts/_layout.html' %}
 {% load ariaa_tags %}
 {% block title %}هشدار قیمت | حساب آریا{% endblock %}
-{% block meta_description %}برای رسیدن قیمت آهن‌آلات به مبلغ دلخواه، در حساب خود هشدار ثبت کنید.{% endblock %}
-{% block robots_meta %}noindex, nofollow{% endblock %}
-{% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><span>هشدار قیمت</span></nav><p class="eyebrow eyebrow--dark">اعلان حساب کاربری</p><h1>هشدارهای قیمت</h1><p>پس از تأیید ثبت قیمت، اگر مبلغ و واحد با شرط شما سازگار باشد، در حساب کاربری اعلان می‌سازیم.</p></div></section>
-<section class="section content-section"><div class="container account-layout">
-  <form class="inquiry-form" method="post" data-price-alert-form>{% csrf_token %}<h2>{% if editing_alert %}ویرایش هشدار{% else %}ثبت هشدار جدید{% endif %}</h2>{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<div class="form-field{% if field.errors %} form-field--error{% endif %}" data-alert-field="{{ field.name }}">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.name == 'percent_change' %}<small>تغییر نسبت به قیمت معتبر هنگام ثبت هشدار سنجیده می‌شود؛ هشدار درصدی پس از اعلان متوقف خواهد شد.</small>{% endif %}</div>{% endfor %}<button class="button button--navy" type="submit">{% if editing_alert %}ذخیرهٔ تغییرات{% else %}ثبت هشدار{% endif %}</button>{% if editing_alert %} <a class="button button--outline" href="{% url 'accounts:price_alerts' %}">بازگشت</a>{% endif %}</form>
-  <section class="inquiry-form" aria-labelledby="push-heading"><h2 id="push-heading">اعلان روی دستگاه</h2><p>پس از تأیید سرویس ارسال و تنظیم کلیدهای VAPID، می‌توانید اعلان قیمت را برای این مرورگر فعال کنید.</p>{% if vapid_public_key and push_delivery_enabled %}<button class="button button--outline" id="push-subscribe-button" type="button" data-vapid-key="{{ vapid_public_key }}" data-subscribe-url="{% url 'accounts:push_subscribe' %}" data-unsubscribe-url="{% url 'accounts:push_unsubscribe' %}">فعال‌سازی اعلان مرورگر</button><p id="push-subscribe-status" role="status" aria-live="polite"></p>{% else %}<p>ثبت و نمایش اعلان داخل حساب فعال است؛ ارسال مرورگری تا تکمیل پیکربندی سرویس ارسال غیرفعال می‌ماند.</p>{% endif %}</section>
-  <div class="inquiry-form"><h2>هشدارهای من</h2>{% if alerts %}<ul class="account-notifications">{% for alert in alerts %}<li><strong>{{ alert.variant.product.name }} — {{ alert.variant.name }}</strong><p>{% if alert.condition_type == 'percent' %}{% if alert.direction == 'below' %}کاهش{% else %}افزایش{% endif %} {{ alert.percent_change|fa_digits }}٪ از {{ alert.baseline_amount|money:alert.currency }}{% if alert.baseline_location %} · {{ alert.baseline_location }}{% endif %} ({{ alert.baseline_observed_at|jalali_datetime }}){% else %}{{ alert.get_direction_display }}: {{ alert.target_amount|money:alert.currency }}{% endif %} / {{ alert.get_price_basis_display }}</p><p>وضعیت: {% if alert.is_active %}فعال{% else %}متوقف{% endif %}</p><div class="alert-actions"><a class="text-link" href="{% url 'accounts:price_alert_edit' alert.id %}">ویرایش</a><form method="post" action="{% url 'accounts:price_alert_toggle' alert.id %}">{% csrf_token %}<button class="text-link" type="submit">{% if alert.is_active %}توقف{% else %}فعال‌سازی{% endif %}</button></form><form method="post" action="{% url 'accounts:price_alert_delete' alert.id %}">{% csrf_token %}<button class="text-link" type="submit">حذف</button></form></div></li>{% endfor %}</ul>{% else %}<p>هشداری ثبت نشده است.</p>{% endif %}</div>
-</div></section>
+{% block account_crumbs %}<span>/</span><span>هشدار قیمت</span>{% endblock %}
+{% block account_icon %}{% icon 'bell' %}{% endblock %}
+{% block account_title %}هشدارهای قیمت{% endblock %}
+{% block account_lead %}وقتی قیمت به عدد هدف رسید یا درصد مشخصی تغییر کرد، در حساب و در صورت انتخاب با پیامک باخبر شوید.{% endblock %}
+{% block account_content %}
+<div class="dashboard__grid">
+  <form class="inquiry-form" method="post" data-price-alert-form>{% csrf_token %}
+    <h2>{% if editing_alert %}ویرایش هشدار{% else %}ثبت هشدار جدید{% endif %}</h2>
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}
+      <div class="form-field{% if field.errors %} form-field--error{% endif %}" data-alert-field="{{ field.name }}">
+        {% if field.widget_type == 'checkbox' %}<label class="check-row">{{ field }} <span>{{ field.label }}</span></label>{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}{% else %}{{ field.label_tag }}{{ field }}{% endif %}{{ field.errors }}
+        {% if field.name == 'percent_change' %}<small class="form-help">تغییر نسبت به قیمت معتبر هنگام ثبت هشدار سنجیده می‌شود؛ هشدار درصدی پس از اعلان متوقف می‌شود.</small>{% endif %}
+      </div>
+    {% endfor %}
+    <div class="alert-actions"><button class="button button--gold" type="submit">{% icon 'bell' %} {% if editing_alert %}ذخیرهٔ تغییرات{% else %}ثبت هشدار{% endif %}</button>{% if editing_alert %}<a class="button button--outline" href="{% url 'accounts:price_alerts' %}">انصراف</a>{% endif %}</div>
+  </form>
+  <div class="account-card">
+    <h2>هشدارهای من</h2>
+    {% if alerts %}
+    <ul class="account-notifications notice-list">{% for alert in alerts %}
+      <li class="notice{% if alert.is_active %} is-unread{% endif %}">
+        <div class="receipt-heading"><strong>{{ alert.variant.product.name }} — {{ alert.variant.name }}</strong><span class="tag {% if alert.is_active %}tag--available{% else %}tag--neutral{% endif %}">{% if alert.is_active %}فعال{% else %}متوقف{% endif %}</span></div>
+        <p>{% if alert.condition_type == 'percent' %}{% if alert.direction == 'below' %}{% icon 'trending-down' 'i--sm' %} کاهش{% else %}{% icon 'trending-up' 'i--sm' %} افزایش{% endif %} {{ alert.percent_change|fa_digits }}٪ از {{ alert.baseline_amount|money:alert.currency }}{% if alert.baseline_location %} · {{ alert.baseline_location }}{% endif %}{% else %}{{ alert.get_direction_display }} تا {{ alert.target_amount|money:alert.currency }}{% endif %} / {{ alert.get_price_basis_display }}</p>
+        <small>{% if alert.notify_sms %}{% icon 'message-circle' 'i--sm' %} اعلان حساب + پیامک{% else %}اعلان داخل حساب{% endif %}{% if alert.last_notified_at %} · آخرین اعلان {{ alert.last_notified_at|jalali_datetime }}{% endif %}</small>
+        <div class="alert-actions"><a class="text-link" href="{% url 'accounts:price_alert_edit' alert.id %}">{% icon 'pencil' 'i--sm' %} ویرایش</a><form method="post" action="{% url 'accounts:price_alert_toggle' alert.id %}">{% csrf_token %}<button class="text-link" type="submit">{% if alert.is_active %}توقف{% else %}فعال‌سازی{% endif %}</button></form><form method="post" action="{% url 'accounts:price_alert_delete' alert.id %}">{% csrf_token %}<button class="cart-remove" type="submit">{% icon 'trash-2' 'i--sm' %} حذف</button></form></div>
+      </li>{% endfor %}
+    </ul>
+    {% else %}<div class="empty-state"><span class="empty-state__icon">{% icon 'bell' %}</span><strong>هشداری ثبت نشده است</strong><p>کالا و شرط موردنظر را از فرم انتخاب کنید.</p></div>{% endif %}
+    {% if vapid_public_key and push_delivery_enabled %}<div style="margin-top:18px"><button class="button button--outline" id="push-subscribe-button" type="button" data-vapid-key="{{ vapid_public_key }}" data-subscribe-url="{% url 'accounts:push_subscribe' %}" data-unsubscribe-url="{% url 'accounts:push_unsubscribe' %}">{% icon 'bell' %} فعال‌سازی اعلان مرورگر</button><p id="push-subscribe-status" role="status" aria-live="polite"></p></div>{% endif %}
+  </div>
+</div>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}{% if is_quote %}درخواست قیمت{% else %}تماس با آریا{% endif %} | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}{% if is_quote %}ثبت درخواست قیمت و موجودی برای پیگیری توسط کارشناسان آهن‌آلات آریا.{% else %}اطلاعات تماس، نشانی و راه‌های ارتباطی آهن‌آلات آریا و فرم ارسال پیام به کارشناسان شرکت.{% endif %}{% endblock %}
 {% block robots_meta %}{% if is_quote %}noindex, follow{% else %}index, follow{% endif %}{% endblock %}
@@ -6,7 +7,8 @@
 {% block content %}
 <section class="page-hero"><div class="container">
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>{% if is_quote %}درخواست قیمت{% else %}تماس با ما{% endif %}</span></nav>
-  <p class="eyebrow eyebrow--dark">ارتباط با تیم آریا</p>
+  <span class="page-hero__icon">{% if is_quote %}{% icon 'receipt' %}{% else %}{% icon 'headset' %}{% endif %}</span>
+  <p class="eyebrow">ارتباط با تیم آریا</p>
   <h1>{% if is_quote %}درخواست قیمت و موجودی{% else %}پیام برای آهن‌آلات آریا{% endif %}</h1>
   <p>{% if is_quote %}کالای موردنظر را انتخاب کنید تا درخواست شما با همان مشخصات ثبت شود.{% else %}پیام خود را ثبت کنید تا برای پیگیری در پنل شرکت قرار بگیرد.{% endif %}</p>
 </div></section>
@@ -19,11 +21,11 @@
           <h2>{{ contact_details.public_name|default:'راه‌های ارتباط با شرکت' }}</h2>
         </div>
         <div class="company-contact-card__items">
-          {% if contact_details.phone %}<div><span>تلفن</span><a href="tel:{{ contact_details.phone_uri }}" dir="ltr">{{ contact_details.phone }}</a></div>{% endif %}
-          {% if contact_details.alternate_phone %}<div><span>تلفن دوم</span><a href="tel:{{ contact_details.alternate_phone_uri }}" dir="ltr">{{ contact_details.alternate_phone }}</a></div>{% endif %}
-          {% if contact_details.email %}<div><span>رایانامه</span><a href="mailto:{{ contact_details.email }}" dir="ltr">{{ contact_details.email }}</a></div>{% endif %}
-          {% if contact_details.office_hours %}<div><span>ساعات پاسخ‌گویی</span><strong>{{ contact_details.office_hours }}</strong></div>{% endif %}
-          {% if contact_details.address %}<div class="company-contact-card__address"><span>نشانی</span><p>{{ contact_details.address|linebreaksbr }}</p></div>{% endif %}
+          {% if contact_details.phone %}<div><span>{% icon 'phone' 'i--sm' %} تلفن</span><a href="tel:{{ contact_details.phone_uri }}" dir="ltr">{{ contact_details.phone }}</a></div>{% endif %}
+          {% if contact_details.alternate_phone %}<div><span>{% icon 'phone' 'i--sm' %} تلفن دوم</span><a href="tel:{{ contact_details.alternate_phone_uri }}" dir="ltr">{{ contact_details.alternate_phone }}</a></div>{% endif %}
+          {% if contact_details.email %}<div><span>{% icon 'mail' 'i--sm' %} رایانامه</span><a href="mailto:{{ contact_details.email }}" dir="ltr">{{ contact_details.email }}</a></div>{% endif %}
+          {% if contact_details.office_hours %}<div><span>{% icon 'clock' 'i--sm' %} ساعات پاسخ‌گویی</span><strong>{{ contact_details.office_hours }}</strong></div>{% endif %}
+          {% if contact_details.address %}<div class="company-contact-card__address"><span>{% icon 'map-pin' 'i--sm' %} نشانی</span><p>{{ contact_details.address|linebreaksbr }}</p></div>{% endif %}
         </div>
         {% if contact_details.map_url or contact_details.whatsapp_url or contact_details.telegram_url or contact_details.instagram_url or contact_details.linkedin_url %}
           <nav class="company-contact-card__links" aria-label="نقشه و شبکه‌های اجتماعی">
@@ -59,13 +61,14 @@
         </div>
         <div class="form-field {% if form.message.errors %}form-field--error{% endif %}">{{ form.message.label_tag }}{{ form.message }}{{ form.message.errors }}</div>
         <p class="inquiry-privacy">اطلاعات این فرم برای پیگیری همین درخواست در اختیار تیم شرکت قرار می‌گیرد.</p>
-        <button class="button button--gold" type="submit">{% if is_quote %}ثبت درخواست قیمت{% else %}ثبت پیام{% endif %}</button>
+        <button class="button button--gold button--lg" type="submit">{% icon 'send' %} {% if is_quote %}ثبت درخواست قیمت{% else %}ارسال پیام{% endif %}</button>
       </form>
       <aside class="inquiry-aside">
         <span class="product-aside__eyebrow">پیش از ارسال</span>
         <h2>درخواست دقیق‌تر، پاسخ دقیق‌تر</h2>
         <p>اگر مقدار موردنیاز، محل تحویل یا زمان مدنظرتان را می‌دانید، در فرم بنویسید تا کارشناس با اطلاعات کامل‌تری پیگیری کند.</p>
-        {% if selected_variant %}<div class="inquiry-product"><small>کالای انتخاب‌شده</small><strong>{{ selected_variant.product.name }}</strong><span>{{ selected_variant.name }}{% if selected_variant.manufacturer %} · {{ selected_variant.manufacturer.name }}{% endif %}</span></div>{% endif %}
+        <ul class="check-list"><li>{% icon 'circle-check' 'i--sm' %} پاسخ با قیمت روز و موجودی انبار</li><li>{% icon 'circle-check' 'i--sm' %} برآورد هزینهٔ حمل تا مقصد</li><li>{% icon 'circle-check' 'i--sm' %} پیگیری خصوصی با شناسهٔ اختصاصی</li></ul>
+        {% if selected_variant %}<div class="inquiry-product"><img src="{% steel_image selected_variant 'sm' %}" alt="" width="72" height="54"><small>کالای انتخاب‌شده</small><strong>{{ selected_variant.product.name }}</strong><span>{{ selected_variant.name }}{% if selected_variant.manufacturer %} · {{ selected_variant.manufacturer.name }}{% endif %}</span></div>{% endif %}
       </aside>
     {% endif %}
   </div>

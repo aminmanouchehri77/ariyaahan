@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block title %}{{ project.title }} | فهرست خرید پروژه | آهن‌آلات آریا{% endblock %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="page-hero page-hero--compact">
+  <div class="container">
+    {% if owner %}<nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><a href="{% url 'orders:project_list' %}">پروژه‌ها</a><span>/</span><span>{{ project.title }}</span></nav>{% endif %}
+    <div class="account-hero"><span class="page-hero__icon">{% icon 'building-2' %}</span><div><p class="eyebrow">فهرست خرید پروژه{% if not owner %} · نسخهٔ اشتراکی{% endif %}</p><h1>{{ project.title }}</h1>{% if project.note %}<p>{{ project.note }}</p>{% endif %}</div></div>
+    <div class="page-hero__meta"><span>{% icon 'package' 'i--sm' %} {{ lines|length|fa_digits }} قلم</span><span>{% icon 'weight' 'i--sm' %} وزن تقریبی {{ total_weight_tonnes|floatformat:-3|fa_digits }} تن{% if not weight_complete %} (برای برخی اقلام وزن مرجع ثبت نشده){% endif %}</span><span>{% icon 'clock' 'i--sm' %} به‌روزرسانی {{ project.updated_at|jalali_datetime }}</span></div>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container receipt-layout">
+    <div>
+      {% if lines %}
+      <div class="receipt-items">
+        {% for line in lines %}{% with variant=line.variant item=line.item %}
+        <article class="receipt-item project-line">
+          <div class="cart-card__product"><img src="{% steel_image variant 'sm' %}" alt="" width="84" height="63" loading="lazy"><a href="{{ variant.product.get_absolute_url }}"><strong>{{ variant.product.name }} — {{ variant.name }}</strong></a><span>{{ variant.manufacturer|default:'' }}{% if variant.latest_amount %} · {{ variant.latest_amount|money:variant.latest_currency }} / {{ variant.latest_unit_label|default:variant.get_unit_display }}{% else %} · قیمت نیازمند استعلام{% endif %}</span></div>
+          <div class="project-line__meta">
+            <span>{% if line.line_total %}برآورد: <b>{{ line.line_total|money:variant.latest_currency }}</b>{% else %}<span class="tag tag--neutral">بدون قیمت معتبر</span>{% endif %}</span>
+            <span>{% if line.weight_kg %}وزن: {{ line.weight_kg|floatformat:0|fa_digits }} kg{% else %}وزن نامشخص{% endif %}</span>
+          </div>
+          {% if owner %}
+          <form class="project-line__form" method="post" action="{% url 'orders:project_item_update' project.public_id item.pk %}">{% csrf_token %}
+            <span class="qty" data-qty><button type="button" data-step="1" aria-label="افزایش">+</button><input type="number" name="quantity" value="{{ item.quantity|floatformat:-3 }}" min="0.001" step="0.001" inputmode="decimal" aria-label="مقدار ({{ variant.get_unit_display }})"><button type="button" data-step="-1" aria-label="کاهش">−</button></span>
+            <small class="muted">{{ variant.get_unit_display }}</small>
+            <button class="button button--outline button--sm" type="submit" name="action" value="update">{% icon 'refresh-cw' %} ذخیره</button>
+            <button class="cart-remove" type="submit" name="action" value="remove">{% icon 'trash-2' 'i--sm' %} حذف</button>
+          </form>
+          {% else %}<small class="muted">مقدار: {{ item.quantity|floatformat:-3|fa_digits }} {{ variant.get_unit_display }}</small>{% endif %}
+        </article>
+        {% endwith %}{% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'boxes' %}</span><strong>این پروژه هنوز قلمی ندارد</strong><p>از صفحهٔ هر کالا، «ذخیره در فهرست خرید پروژه» را انتخاب کنید.</p><a class="button button--gold" href="{% url 'catalog:category_list' %}">انتخاب کالا</a></div>
+      {% endif %}
+    </div>
+    <aside class="order-summary-card">
+      <h2>{% icon 'calculator' %} جمع‌بندی پروژه</h2>
+      <dl>
+        <div><dt>تعداد اقلام</dt><dd>{{ lines|length|fa_digits }}</dd></div>
+        <div><dt>وزن تقریبی</dt><dd>{{ total_weight_tonnes|floatformat:-3|fa_digits }} تن</dd></div>
+        {% for currency, amount in currency_totals.items %}<div class="total"><dt>برآورد قیمت روز</dt><dd>{{ amount|money:currency }}</dd></div>{% empty %}<div><dt>برآورد قیمت</dt><dd>نیازمند استعلام</dd></div>{% endfor %}
+      </dl>
+      <p class="gateway-note">{% icon 'info' %} برآورد با آخرین قیمت معتبر هر کالا محاسبه می‌شود و جایگزین پیش‌فاکتور رسمی نیست.</p>
+      {% if owner %}
+        {% if lines %}<form method="post" action="{% url 'orders:project_update' project.public_id %}">{% csrf_token %}<button class="button button--gold button--full" name="action" value="to_cart" type="submit">{% icon 'clipboard-list' %} انتقال همه به سبد پیش‌فاکتور</button></form>{% endif %}
+        <form method="post" action="{% url 'orders:project_update' project.public_id %}" style="margin-top:10px">{% csrf_token %}<button class="button button--ghost-light button--full" name="action" value="share" type="submit">{% icon 'share-2' %} {% if project.is_shared %}غیرفعال‌کردن اشتراک{% else %}ساخت پیوند اشتراک برای مهندس/پیمانکار{% endif %}</button></form>
+        {% if project.is_shared %}<label class="visually-hidden" for="share-url">پیوند اشتراک</label><input id="share-url" class="share-url-fallback" style="margin-top:10px" readonly value="{{ canonical_origin }}{% url 'orders:project_shared' project.public_id %}">
+        <a class="button button--ghost-light button--full" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/?text={{ project.title|urlencode }}%20{{ canonical_origin|urlencode }}{% url 'orders:project_shared' project.public_id as shared_url %}{{ shared_url|urlencode }}">{% icon 'send' %} ارسال در واتس‌اپ</a>{% endif %}
+        <button class="button button--ghost-light button--full" type="button" data-print-button hidden style="margin-top:10px">{% icon 'printer' %} چاپ فهرست</button>
+        <details class="project-settings"><summary>{% icon 'pencil' 'i--sm' %} ویرایش یا حذف پروژه</summary>
+          <form method="post" action="{% url 'orders:project_update' project.public_id %}">{% csrf_token %}
+            <label class="form-field"><span>نام</span><input class="form-control" name="title" value="{{ project.title }}" maxlength="120"></label>
+            <label class="form-field"><span>یادداشت</span><input class="form-control" name="note" value="{{ project.note }}" maxlength="300"></label>
+            <div class="alert-actions"><button class="button button--outline button--sm" name="action" value="rename" type="submit">ذخیره</button><button class="cart-remove" name="action" value="delete" type="submit" data-confirm="این پروژه حذف شود؟">{% icon 'trash-2' 'i--sm' %} حذف پروژه</button></div>
+          </form>
+        </details>
+      {% else %}
+        <a class="button button--gold button--full" href="{% url 'inquiries:quote' %}">{% icon 'receipt' %} استعلام قیمت این فهرست</a>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

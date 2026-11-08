@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load ariaa_tags %}
+{% block robots_meta %}noindex, nofollow{% endblock %}
+{% block footer_cta %}{% endblock %}
+{% block content %}
+{% with current=request.resolver_match.url_name %}
+<section class="page-hero page-hero--compact">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'accounts:profile' %}">حساب کاربری</a>{% block account_crumbs %}{% endblock %}</nav>
+    <div class="account-hero">
+      <span class="page-hero__icon">{% block account_icon %}{% icon 'user' %}{% endblock %}</span>
+      <div><h1>{% block account_title %}حساب کاربری{% endblock %}</h1><p>{% block account_lead %}{% endblock %}</p></div>
+    </div>
+  </div>
+</section>
+<section class="section content-section">
+  <div class="container dashboard">
+    <nav class="dashboard__nav" aria-label="منوی حساب کاربری">
+      <a href="{% url 'accounts:profile' %}"{% if current == 'profile' %} aria-current="page"{% endif %}>{% icon 'house' %}<span>داشبورد</span></a>
+      <a href="{% url 'accounts:orders' %}"{% if current == 'orders' or current == 'order_detail' %} aria-current="page"{% endif %}>{% icon 'receipt' %}<span>سفارش‌ها و پیش‌فاکتورها</span></a>
+      <a href="{% url 'orders:project_list' %}"{% if current == 'project_list' or current == 'project_detail' %} aria-current="page"{% endif %}>{% icon 'boxes' %}<span>فهرست خرید پروژه</span></a>
+      <a href="{% url 'accounts:price_alerts' %}"{% if current == 'price_alerts' or current == 'price_alert_edit' %} aria-current="page"{% endif %}>{% icon 'bell' %}<span>هشدار قیمت</span></a>
+      <a href="{% url 'accounts:notifications' %}"{% if current == 'notifications' %} aria-current="page"{% endif %}>{% icon 'message-circle' %}<span>اعلان‌ها</span></a>
+      <a href="{% url 'accounts:requests' %}"{% if current == 'requests' %} aria-current="page"{% endif %}>{% icon 'file-text' %}<span>درخواست‌ها و آگهی‌ها</span></a>
+      <a href="{% url 'accounts:addresses' %}"{% if current == 'addresses' or current == 'address_add' or current == 'address_edit' %} aria-current="page"{% endif %}>{% icon 'map-pin' %}<span>نشانی‌ها</span></a>
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit">{% icon 'log-out' %}<span>خروج</span></button></form>
+    </nav>
+    <div class="dashboard__main">{% block account_content %}{% endblock %}</div>
+  </div>
+</section>
+{% endwith %}
+{% endblock %}

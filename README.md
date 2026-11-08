@@ -166,3 +166,21 @@ cd frontend && npm install && npm run build
 
 - تصاویر محصول در `static/core/img/products/` (نام فایل = slug دستهٔ اصلی) هستند. هر زمان عکس واقعی محصول دارید، با همان نام جایگزین کنید.
 - برای دیدن طراحی با داده: `python manage.py seed_demo` (فقط DEBUG=1، دادهٔ برچسب‌دار «نمایشی») و حذف با `python manage.py seed_demo --purge`.
+
+
+## فرمان‌های پایش و نگهداری (برای زمان‌بند/cron)
+
+```bash
+python manage.py process_price_events --limit 100   # هر چند دقیقه: خبر قیمت و هشدارها
+python manage.py price_freshness --hours 24          # روزانه: شاخص تازگی قیمت (خروجی ۱ = قیمت منقضی)
+python manage.py check_links                         # هفتگی: لینک شکسته و لینک خروجی محتوا
+python manage.py purge_personal_data                 # روزانه: حذف دادهٔ شخصی پس از دورهٔ نگهداری
+```
+
+## هشدار قیمت پیامکی
+
+در کاوه‌نگار یک الگوی Verify Lookup دیگر بسازید، مثلاً «قیمت %token10 به %token رسید. آهن‌آلات آریا»، و نامش را در `KAVENEGAR_ALERT_TEMPLATE` بگذارید. مشتری در فرم هشدار گزینهٔ پیامک را انتخاب می‌کند؛ سقف روزانه با `PRICE_ALERT_SMS_DAILY_LIMIT` تنظیم می‌شود.
+
+## نوشتن محتوا
+
+متن مقاله، صفحه‌های شرکت، توضیح کالا و پاسخ FAQ را می‌توان با Markdown نوشت (تیتر `##`، فهرست، **پررنگ**، جدول، لینک و تصویر). HTML خطرناک و اسکریپت حذف می‌شود.

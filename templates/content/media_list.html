@@ -1,7 +1,20 @@
 {% extends 'base.html' %}
-{% block title %}{% if is_video %}ویدیوها{% else %}پادکست‌ها{% endif %} | آهن‌آلات آریا{% endblock %}
-{% block meta_description %}محتوای ویدیویی و صوتی منتشرشدهٔ آهن‌آلات آریا.{% endblock %}
+{% load ariaa_tags %}
+{% block title %}{% if is_video %}ویدیوهای آموزشی{% else %}پادکست بازار فولاد{% endif %} | آهن‌آلات آریا{% endblock %}
+{% block meta_description %}محتوای ویدیویی و صوتی منتشرشدهٔ آهن‌آلات آریا دربارهٔ محصولات و بازار فولاد.{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>رسانه</span></nav><p class="eyebrow eyebrow--dark">رسانهٔ آریا</p><h1>{% if is_video %}ویدیوها{% else %}پادکست‌ها{% endif %}</h1></div></section>
-<section class="section content-section"><div class="container">{% if items %}<div class="result-list">{% for item in items %}<article class="result-card">{% if item.cover_image_url %}<img src="{{ item.cover_image_url }}" alt="" loading="lazy" width="120" height="80">{% endif %}<span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small>{% if item.duration_seconds %}<small>مدت: {{ item.duration_seconds }} ثانیه</small>{% endif %}</span><a href="{{ item.media_url }}" target="_blank" rel="noopener noreferrer">پخش محتوا</a></article>{% endfor %}</div>{% else %}<div class="empty-state"><strong>محتوای منتشرشده‌ای وجود ندارد</strong><p>ویدیو و پادکست را از پنل مدیریت به فهرست اضافه کنید.</p></div>{% endif %}</div></section>
+<section class="page-hero"><div class="container">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'content:article_list' %}">مجله</a><span>/</span><span>{% if is_video %}ویدیوها{% else %}پادکست‌ها{% endif %}</span></nav>
+  <span class="page-hero__icon">{% if is_video %}{% icon 'clapperboard' %}{% else %}{% icon 'mic' %}{% endif %}</span>
+  <p class="eyebrow">رسانهٔ آریا</p><h1>{% if is_video %}ویدیوهای آموزشی{% else %}پادکست بازار فولاد{% endif %}</h1>
+  <div class="segmented" style="margin-top:14px"><a class="button {% if is_video %}button--navy{% else %}button--text{% endif %}" href="{% url 'content:videos' %}">ویدیو</a><a class="button {% if not is_video %}button--navy{% else %}button--text{% endif %}" href="{% url 'content:podcasts' %}">پادکست</a></div>
+</div></section>
+<section class="section content-section"><div class="container">
+  {% if items %}<div class="article-grid">{% for item in items %}
+    <a class="article-card" href="{{ item.media_url }}" target="_blank" rel="noopener noreferrer">
+      <span class="article-card__media">{% if item.cover_image_url %}<img src="{{ item.cover_image_url }}" alt="" loading="lazy">{% else %}<img class="is-render" src="{% steel_image 'beam' 'sm' %}" alt="" loading="lazy">{% endif %}<span class="play-badge">{% if is_video %}{% icon 'clapperboard' %}{% else %}{% icon 'mic' %}{% endif %}</span></span>
+      <span class="article-card__body"><h3>{{ item.title }}</h3><p>{{ item.summary }}</p>{% if item.duration_seconds %}<span class="article-card__meta"><span>{% icon 'clock' 'i--sm' %} {% widthratio item.duration_seconds 60 1 as minutes %}{{ minutes|fa_digits }} دقیقه</span></span>{% endif %}</span>
+    </a>
+  {% endfor %}</div>{% else %}<div class="empty-state"><span class="empty-state__icon">{% if is_video %}{% icon 'clapperboard' %}{% else %}{% icon 'mic' %}{% endif %}</span><strong>محتوای منتشرشده‌ای وجود ندارد</strong><p>ویدیو و پادکست را از پنل مدیریت به فهرست اضافه کنید.</p></div>{% endif %}
+</div></section>
 {% endblock %}

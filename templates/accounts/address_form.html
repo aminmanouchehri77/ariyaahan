@@ -1,7 +1,14 @@
-{% extends 'base.html' %}
+{% extends 'accounts/_layout.html' %}
+{% load ariaa_tags %}
 {% block title %}{{ title }} | حساب آریا{% endblock %}
-{% block robots_meta %}noindex, nofollow{% endblock %}
-{% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span><a href="{% url 'accounts:addresses' %}">نشانی‌ها</a><span>/</span><span>{{ title }}</span></nav><p class="eyebrow eyebrow--dark">تحویل کالا</p><h1>{{ title }}</h1></div></section>
-<section class="section content-section"><div class="container narrow-container"><form class="inquiry-form" method="post">{% csrf_token %}{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<div class="form-field{% if field.errors %} form-field--error{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button class="button button--navy" type="submit">ذخیرهٔ نشانی</button> <a class="button button--outline" href="{% url 'accounts:addresses' %}">بازگشت</a></form></div></section>
+{% block account_crumbs %}<span>/</span><a href="{% url 'accounts:addresses' %}">نشانی‌ها</a><span>/</span><span>{{ title }}</span>{% endblock %}
+{% block account_icon %}{% icon 'map-pin' %}{% endblock %}
+{% block account_title %}{{ title }}{% endblock %}
+{% block account_lead %}نشانی دقیق تخلیهٔ بار، تحویل‌گیرنده و شمارهٔ هماهنگی را وارد کنید.{% endblock %}
+{% block account_content %}
+<form class="inquiry-form" method="post">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">{% for field in form %}<div class="form-field{% if field.errors %} form-field--error{% endif %}{% if field.name == 'address' or field.name == 'delivery_note' or field.name == 'is_default' %} form-field--wide{% endif %}">{% if field.widget_type == 'checkbox' %}<label>{{ field }} {{ field.label }}</label>{% else %}{{ field.label_tag }}{{ field }}{% endif %}{{ field.errors }}</div>{% endfor %}</div>
+  <div class="alert-actions"><button class="button button--gold" type="submit">{% icon 'check' %} ذخیرهٔ نشانی</button><a class="button button--outline" href="{% url 'accounts:addresses' %}">انصراف</a></div>
+</form>
 {% endblock %}

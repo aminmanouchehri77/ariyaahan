@@ -156,3 +156,57 @@ def percent_fa(value):
         return ''
     sign = '+' if number > 0 else ('−' if number < 0 else '')
     return f'{sign}{abs(number):.2f}٪'.translate(PERSIAN_DIGITS).replace('.', '٫')
+
+
+ALLOWED_TAGS = {
+    'p', 'br', 'h2', 'h3', 'h4', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre',
+    'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'figure', 'figcaption', 'span', 'sub', 'sup',
+}
+ALLOWED_ATTRIBUTES = {
+    'a': {'href', 'title'},
+    'img': {'src', 'alt', 'title', 'width', 'height', 'loading'},
+    'th': {'colspan', 'rowspan', 'scope'},
+    'td': {'colspan', 'rowspan'},
+    'span': {'dir'},
+}
+
+
+@register.filter
+def rich_text(value):
+    """Render editor Markdown (or plain text) to sanitised HTML.
+
+    Scripts, inline styles, event handlers and unknown tags are stripped; links
+    get rel="nofollow noopener" so injected outbound links carry no SEO weight.
+    """
+    if not value:
+        return ''
+    import markdown as markdown_lib
+    import nh3
+
+    html = markdown_lib.markdown(str(value), extensions=['tables', 'sane_lists', 'nl2br'], output_format='html')
+    clean = nh3.clean(
+        html, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, url_schemes={'http', 'https', 'mailto', 'tel'},
+        link_rel='nofollow noopener noreferrer',
+    )
+    return mark_safe(clean.replace('<img ', '<img loading="lazy" ').replace('<table>', '<div class="table-scroll"><table>').replace('</table>', '</table></div>'))
+
+
+@register.simple_tag
+def sparkline(variant):
+    points = getattr(variant, 'spark', '')
+    if not points:
+        return ''
+    trend = getattr(variant, 'spark_trend', 'flat')
+    label = {'up': 'روند افزایشی', 'down': 'روند کاهشی'}.get(trend, 'بدون تغییر')
+    last = points.split(' ')[-1].split(',')
+    return format_html(
+        '<svg class="spark spark--{}" viewBox="-2 0 104 32" preserveAspectRatio="none" role="img" aria-label="{}">'
+        '<polyline points="{}"/><circle cx="{}" cy="{}" r="2.6"/></svg>',
+        trend, label, points, last[0], last[1],
+    )
+
+
+@register.filter
+def reading_minutes(text):
+    words = len(str(text or '').split())
+    return max(1, -(-words // 200))

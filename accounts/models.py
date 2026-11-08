@@ -103,6 +103,7 @@ class PriceAlert(models.Model):
     currency = models.CharField('ارز', max_length=3, choices=CURRENCY_CHOICES, default='IRT')
     price_basis = models.CharField('مبنای قیمت', max_length=12, choices=BASIS_CHOICES)
     is_active = models.BooleanField('فعال', default=True)
+    notify_sms = models.BooleanField('ارسال پیامک هنگام رسیدن به شرط', default=False)
     last_notified_at = models.DateTimeField('آخرین اعلان', null=True, blank=True)
     created_at = models.DateTimeField('زمان ایجاد', auto_now_add=True)
 
@@ -150,6 +151,10 @@ class CustomerNotification(models.Model):
     body = models.CharField('متن', max_length=500)
     target_url = models.CharField('نشانی مقصد', max_length=300, blank=True)
     price_alert = models.ForeignKey(PriceAlert, null=True, blank=True, on_delete=models.SET_NULL, related_name='notifications')
+    sms_status = models.CharField(
+        'وضعیت پیامک', max_length=12, blank=True,
+        choices=(('sent', 'ارسال‌شده'), ('failed', 'ناموفق'), ('limited', 'سقف روزانه'), ('skipped', 'بدون تنظیم')),
+    )
     price_observation = models.ForeignKey(
         'pricing.PriceObservation', null=True, blank=True, on_delete=models.SET_NULL, related_name='customer_notifications',
     )

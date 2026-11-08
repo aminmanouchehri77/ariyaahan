@@ -115,7 +115,7 @@ class PriceAlertForm(forms.ModelForm):
     consent = forms.BooleanField(
         label='موافقم اعلان هشدار قیمت در حساب کاربری‌ام ثبت شود.', required=True,
     )
-    variant = ActiveVariantField(queryset=ProductVariant.objects.none(), label='کالا')
+    variant = ActiveVariantField(queryset=ProductVariant.objects.none(), label='کالا', empty_label='انتخاب کالا')
     target_amount = forms.DecimalField(
         label='مبلغ هدف', required=False, min_value=1, max_digits=18, decimal_places=0,
         widget=forms.NumberInput(attrs={'min': '1', 'step': '1', 'inputmode': 'numeric'}),
@@ -128,7 +128,7 @@ class PriceAlertForm(forms.ModelForm):
 
     class Meta:
         model = PriceAlert
-        fields = ('variant', 'condition_type', 'direction', 'target_amount', 'percent_change', 'currency', 'price_basis')
+        fields = ('variant', 'condition_type', 'direction', 'target_amount', 'percent_change', 'currency', 'price_basis', 'notify_sms')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -137,8 +137,11 @@ class PriceAlertForm(forms.ModelForm):
         self.fields['variant'].queryset = ProductVariant.objects.filter(
             is_active=True, product__is_active=True, product__category__is_active=True,
         ).select_related('product', 'manufacturer').order_by('product__name', 'sort_order', 'name')
-        for field in self.fields.values():
-            field.widget.attrs.setdefault('class', 'form-control')
+        self.fields['notify_sms'].label = 'علاوه بر اعلان حساب، پیامک هم دریافت کنم'
+        self.fields['notify_sms'].help_text = 'حداکثر چند پیامک در روز برای هر حساب؛ قابل لغو با ویرایش هشدار.'
+        for name, field in self.fields.items():
+            if name != 'notify_sms':
+                field.widget.attrs.setdefault('class', 'form-control')
 
     def clean(self):
         cleaned = super().clean()

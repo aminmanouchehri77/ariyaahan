@@ -1,6 +1,7 @@
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import models
 
 
@@ -63,3 +64,30 @@ class RedirectRule(models.Model):
 
     def __str__(self):
         return f'{self.old_path} → {self.destination or self.get_status_code_display()}'
+
+
+class AuditLog(models.Model):
+    class Action(models.TextChoices):
+        CREATE = 'create', 'ایجاد'
+        UPDATE = 'update', 'ویرایش'
+        DELETE = 'delete', 'حذف'
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='کاربر', null=True, blank=True, on_delete=models.SET_NULL, related_name='audit_logs',
+    )
+    action = models.CharField('عملیات', max_length=8, choices=Action.choices)
+    model_label = models.CharField('موجودیت', max_length=80, db_index=True)
+    object_id = models.CharField('شناسه', max_length=64, db_index=True)
+    object_repr = models.CharField('عنوان', max_length=200)
+    changes = models.JSONField('تغییرات', default=dict, blank=True)
+    ip_address = models.GenericIPAddressField('IP', null=True, blank=True)
+    created_at = models.DateTimeField('زمان', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'رویداد ممیزی'
+        verbose_name_plural = 'گزارش ممیزی تغییرات'
+        ordering = ('-created_at', '-pk')
+        indexes = [models.Index(fields=('model_label', 'object_id', '-created_at'), name='audit_object_idx')]
+
+    def __str__(self):
+        return f'{self.get_action_display()} {self.model_label}#{self.object_id}'

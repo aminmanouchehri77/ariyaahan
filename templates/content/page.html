@@ -1,18 +1,35 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}{{ page.seo_title|default:title_text }} | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}{{ page.meta_description|default:summary_text }}{% endblock %}
 {% block robots_meta %}{% if robots_noindex %}noindex, nofollow{% else %}index, follow{% endif %}{% endblock %}
 {% block canonical_url %}{{ canonical }}{% endblock %}
 {% block structured_data %}<script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container">
-  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>{{ title_text }}</span></nav>
-  <p class="eyebrow eyebrow--dark">آهن‌آلات آریا</p><h1>{{ title_text }}</h1><p>{{ summary_text }}</p>
-</div></section>
+<section class="page-hero">
+  <div class="container page-hero__grid page-hero__grid--art">
+    <div>
+      <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>{{ title_text }}</span></nav>
+      <p class="eyebrow">آهن‌آلات آریا</p><h1>{{ title_text }}</h1><p>{{ summary_text }}</p>
+    </div>
+    <div class="page-hero__art" aria-hidden="true"><img src="{% if page.kind == 'shipping' %}{% steel_image 'pipe' %}{% elif page.kind == 'about' %}{% steel_image 'beam' %}{% else %}{% steel_image 'steel-sheet' %}{% endif %}" alt="" width="960" height="720"></div>
+  </div>
+</section>
 <section class="section content-section"><div class="container narrow-container">
-  <article class="article-body">{{ body_text|linebreaks }}</article>
+  {% if kind == 'about' or page.kind == 'about' %}
+  <div class="stat-tiles" style="margin-bottom:28px">
+    <div class="stat-tile">{% icon 'badge-check' %}<strong>قیمت</strong><span>تأییدشده و زمان‌دار</span></div>
+    <div class="stat-tile">{% icon 'warehouse' %}<strong>موجودی</strong><span>با محل و زمان ثبت</span></div>
+    <div class="stat-tile">{% icon 'truck' %}<strong>حمل</strong><span>برآورد بر اساس مسیر</span></div>
+    <div class="stat-tile">{% icon 'lock' %}<strong>پرداخت</strong><span>درگاه امن شاپرک</span></div>
+  </div>
+  {% endif %}
+  <article class="prose article-body card-prose">{{ body_text|rich_text }}</article>
   {% if not page %}<p class="inquiry-privacy">مدیر محتوا می‌تواند متن رسمی و اطلاعات تأییدشدهٔ شرکت را از پنل مدیریت منتشر کند.</p>{% endif %}
-  {% if page.kind == 'export' %}<a class="button button--navy" href="{% url 'content:export' %}">ثبت استعلام صادرات</a>{% endif %}
-  {% if page.kind == 'careers' %}<a class="button button--navy" href="{% url 'content:careers' %}">ارسال درخواست همکاری</a>{% endif %}
+  <div class="alert-actions" style="margin-top:20px">
+    {% if page.kind == 'export' %}<a class="button button--gold" href="{% url 'content:export' %}">{% icon 'globe' %} ثبت استعلام صادرات</a>{% endif %}
+    {% if page.kind == 'careers' %}<a class="button button--gold" href="{% url 'content:careers' %}">{% icon 'briefcase' %} ارسال درخواست همکاری</a>{% endif %}
+    <a class="button button--outline" href="{% url 'inquiries:contact' %}">{% icon 'headset' %} تماس با ما</a>
+  </div>
 </div></section>
 {% endblock %}

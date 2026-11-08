@@ -1,23 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'accounts/_layout.html' %}
 {% load ariaa_tags %}
 {% block title %}پیش‌فاکتورها و سفارش‌ها | حساب آریا{% endblock %}
-{% block meta_description %}پیگیری وضعیت پیش‌فاکتورها و سفارش‌های ثبت‌شده در حساب شما.{% endblock %}
-{% block robots_meta %}noindex, nofollow{% endblock %}
-{% block content %}
-<section class="page-hero">
-  <div class="container">
-    <nav class="breadcrumbs" aria-label="مسیر صفحه">
-      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
-      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
-      <span>سفارش‌ها</span>
-    </nav>
-    <p class="eyebrow eyebrow--dark">پیگیری خرید</p>
-    <h1>پیش‌فاکتورها و سفارش‌ها</h1>
-    <p>ثبت پیش‌فاکتور به‌تنهایی به معنی سفارش قطعی یا پرداخت نیست.</p>
-  </div>
-</section>
-<section class="section content-section">
-  <div class="container narrow-container">
+{% block account_crumbs %}<span>/</span><span>سفارش‌ها</span>{% endblock %}
+{% block account_icon %}{% icon 'receipt' %}{% endblock %}
+{% block account_title %}سفارش‌ها و پیش‌فاکتورها{% endblock %}
+{% block account_lead %}ثبت پیش‌فاکتور به‌تنهایی به معنی سفارش قطعی یا پرداخت نیست.{% endblock %}
+{% block account_content %}
     <h2>سفارش‌های تأییدشده</h2>
     {% if order_page.object_list %}
       <div class="result-list">
@@ -40,7 +28,7 @@
         </nav>
       {% endif %}
     {% else %}
-      <div class="empty-state"><strong>سفارشی ثبت نشده</strong><p>سفارش پس از بررسی و تأیید پیش‌فاکتور از سوی کارشناسان ایجاد می‌شود.</p></div>
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'receipt' %}</span><strong>سفارشی ثبت نشده</strong><p>سفارش پس از بررسی و تأیید پیش‌فاکتور از سوی کارشناسان ایجاد می‌شود.</p></div>
     {% endif %}
 
     <h2>پیش‌فاکتورها</h2>
@@ -64,8 +52,6 @@
         </nav>
       {% endif %}
     {% else %}
-      <div class="empty-state"><strong>پیش‌فاکتوری در حساب ثبت نشده</strong><p>درخواست‌های بعدی که پس از ورود ثبت کنید، در این بخش دیده می‌شوند.</p></div>
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'receipt' %}</span><strong>پیش‌فاکتوری در حساب ثبت نشده</strong><p>درخواست‌های بعدی که پس از ورود ثبت کنید، در این بخش دیده می‌شوند.</p></div>
     {% endif %}
-  </div>
-</section>
 {% endblock %}

@@ -1,8 +1,15 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}درخواست ثبت شد | آهن‌آلات آریا{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
 {% block content %}
-<section class="section content-section"><div class="container narrow-container">
-  <div class="empty-state"><span class="receipt-check" aria-hidden="true">✓</span><h1>{{ title_text }} ثبت شد</h1><p>شناسهٔ پیگیری: <strong dir="ltr">{{ request_record.public_id }}</strong></p><p>برای مشاهدهٔ وضعیت، این پیوند خصوصی را نگه دارید. اطلاعات تماس و متن درخواست در صفحهٔ پیگیری نمایش داده نمی‌شود.</p><a class="button button--navy" href="{% url 'content:company_request_status' request_record.public_id %}">پیگیری وضعیت درخواست</a></div>
+<section class="section"><div class="container redirect-card">
+  <div class="payment-result payment-result--ok">
+    <span class="payment-result__icon">{% icon 'check' %}</span>
+    <h1 style="font-size:1.5rem">{{ title_text }} ثبت شد</h1>
+    <p class="muted">این پیوند خصوصی را نگه دارید؛ اطلاعات تماس و متن درخواست در صفحهٔ پیگیری نمایش داده نمی‌شود.</p>
+    <dl><div><dt>شناسهٔ پیگیری</dt><dd dir="ltr" style="font-size:.78rem">{{ request_record.public_id }}</dd></div><div><dt>زمان ثبت</dt><dd>{{ request_record.created_at|jalali_datetime }}</dd></div></dl>
+    <a class="button button--gold" href="{% url 'content:company_request_status' request_record.public_id %}">{% icon 'eye' %} پیگیری وضعیت درخواست</a>
+  </div>
 </div></section>
 {% endblock %}

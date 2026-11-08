@@ -1,19 +1,29 @@
 {% extends 'base.html' %}
+{% load ariaa_tags %}
 {% block title %}{{ title_text }} | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}{{ intro_text }}{% endblock %}
 {% block robots_meta %}noindex, follow{% endblock %}
 {% block content %}
 <section class="page-hero"><div class="container">
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>{{ title_text }}</span></nav>
-  <p class="eyebrow eyebrow--dark">ارتباط با آریا</p><h1>{{ title_text }}</h1><p>{{ intro_text }}</p>
+  <span class="page-hero__icon">{% if kind == 'export' %}{% icon 'globe' %}{% elif kind == 'career' %}{% icon 'briefcase' %}{% elif kind == 'complaint' %}{% icon 'triangle-alert' %}{% else %}{% icon 'message-circle' %}{% endif %}</span>
+  <p class="eyebrow">ارتباط با آریا</p><h1>{{ title_text }}</h1><p>{{ intro_text }}</p>
 </div></section>
-<section class="section content-section"><div class="container narrow-container">
+<section class="section content-section"><div class="container inquiry-layout">
   <form class="inquiry-form" method="post" novalidate>
     {% csrf_token %}{{ form.website }}
     {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-    {% for field in form %}{% if not field.is_hidden %}<div class="form-field{% if field.errors %} form-field--error{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
-    <p class="inquiry-privacy">اطلاعات تماس برای پیگیری همین درخواست استفاده می‌شود و در فهرست عمومی نمایش داده نمی‌شود.</p>
-    <button class="button button--gold" type="submit">ثبت و دریافت شناسهٔ پیگیری</button>
+    <div class="form-grid">{% for field in form %}{% if not field.is_hidden and field.name != 'website' %}<div class="form-field{% if field.errors %} form-field--error{% endif %}{% if field.widget_type == 'textarea' or field.widget_type == 'checkbox' %} form-field--wide{% endif %}">{% if field.widget_type == 'checkbox' %}<label class="check-row">{{ field }} <span>{{ field.label }}</span></label>{% else %}{{ field.label_tag }}{{ field }}{% endif %}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endif %}{% endfor %}</div>
+    <p class="inquiry-privacy">{% icon 'lock' 'i--sm' %} اطلاعات تماس فقط برای پیگیری همین درخواست استفاده می‌شود و عمومی نمی‌شود.</p>
+    <button class="button button--gold button--lg" type="submit">{% icon 'send' %} ثبت و دریافت شناسهٔ پیگیری</button>
   </form>
+  <aside class="inquiry-aside">
+    <span class="product-aside__eyebrow">بعد از ثبت چه می‌شود؟</span>
+    <ol class="timeline" style="margin-top:14px">
+      <li><strong>ثبت و شناسهٔ پیگیری</strong><small>یک پیوند خصوصی برای دیدن وضعیت دریافت می‌کنید.</small></li>
+      <li><strong>بررسی کارشناس</strong><small>درخواست در پنل به واحد مربوط ارجاع می‌شود.</small></li>
+      <li><strong>تماس و نتیجه</strong><small>وضعیت در صفحهٔ پیگیری و حساب کاربری به‌روز می‌شود.</small></li>
+    </ol>
+  </aside>
 </div></section>
 {% endblock %}

@@ -81,7 +81,46 @@ def _clear_checkout_quote(request):
 @never_cache
 @require_GET
 def cart_detail(request):
-    return render(request, 'orders/cart.html', build_cart_context(request))
+    from decimal import Decimal
+
+    from pricing.shipping import active_routes, combined_total, estimate
+
+    from .projects import weight_kg
+
+    context = build_cart_context(request)
+    origins, destinations = active_routes()
+    origin = request.GET.get('origin', '')[:100]
+    destination = request.GET.get('destination', '')[:100]
+    total_weight = Decimal('0')
+    weight_complete = True
+    for line in context['cart_lines']:
+        weight = weight_kg(line['variant'], line['quantity'])
+        line['weight_kg'] = weight
+        if weight is None:
+            weight_complete = False
+        else:
+            total_weight += weight
+    weight_tonnes = (total_weight / Decimal('1000')).quantize(Decimal('0.001'))
+    shipping = None
+    if origin in origins and destination in destinations and weight_tonnes > 0:
+        shipping = estimate(origin, destination, weight_tonnes)
+    context.update({
+        'shipping_origins': origins,
+        'shipping_destinations': destinations,
+        'shipping_origin': origin,
+        'shipping_destination': destination,
+        'shipping_estimate': shipping,
+        'shipping_requested': bool(origin and destination),
+        'cart_weight_tonnes': weight_tonnes,
+        'cart_weight_complete': weight_complete,
+        'grand_total_rial': combined_total(
+            [(total['currency'], total['amount']) for total in context['currency_totals']], shipping,
+        ) if not context['has_unpriced_items'] else None,
+    })
+    if request.user.is_authenticated:
+        profile = CustomerProfile.objects.filter(user=request.user).first()
+        context['projects'] = profile.projects.all()[:20] if profile else []
+    return render(request, 'orders/cart.html', context)
 
 
 @never_cache

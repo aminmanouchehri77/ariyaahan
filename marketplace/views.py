@@ -1,15 +1,21 @@
+import hashlib
+
+from django.conf import settings
 from django.contrib import messages
+from django.db import IntegrityError, transaction
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.models import CustomerProfile
 from core.throttle import submission_allowed
 from .forms import MarketplaceListingForm
-from .models import MarketplaceListing
+from .models import ListingReport, MarketplaceListing
+
+AUTO_HIDE_REPORTS = 3
 
 
 PAGE_SIZE = 12
@@ -46,6 +52,20 @@ def _hall(request, kind):
             product_variant__product__category__is_active=True,
         )
     ).select_related('product_variant', 'product_variant__product').order_by('-created_at', '-pk')
+    search = request.GET.get('q', '').strip()[:80]
+    city = request.GET.get('city', '').strip()[:80]
+    if search:
+        from core.search import match_q
+
+        condition = match_q(search, ('product_label', 'details', 'product_variant__product__name'))
+        if condition is not None:
+            listings = listings.filter(condition)
+    if city:
+        listings = listings.filter(city__icontains=city)
+    cities = list(
+        MarketplaceListing.objects.filter(kind=kind, status=MarketplaceListing.Status.APPROVED, expires_at__gt=timezone.now())
+        .values_list('city', flat=True).distinct().order_by('city')[:30]
+    )
     page_obj = Paginator(listings, PAGE_SIZE).get_page(request.GET.get('page'))
     is_offer = kind == MarketplaceListing.Kind.OFFER
     return render(request, 'marketplace/hall.html', {
@@ -54,6 +74,10 @@ def _hall(request, kind):
         'is_offer': is_offer,
         'page_obj': page_obj,
         'listings': page_obj.object_list,
+        'search': search,
+        'city': city,
+        'cities': cities,
+        'report_reasons': ListingReport.Reason.choices,
     })
 
 
@@ -77,3 +101,38 @@ def listing_status(request, public_id):
     response['X-Robots-Tag'] = 'noindex, nofollow'
     response['Referrer-Policy'] = 'no-referrer'
     return response
+
+
+@require_POST
+def report_listing(request, pk):
+    listing = get_object_or_404(
+        MarketplaceListing, pk=pk, status=MarketplaceListing.Status.APPROVED, expires_at__gt=timezone.now(),
+    )
+    hall = 'marketplace:sell' if listing.kind == MarketplaceListing.Kind.OFFER else 'marketplace:buy'
+    reason = request.POST.get('reason', '')
+    if reason not in ListingReport.Reason.values:
+        messages.error(request, 'دلیل گزارش را انتخاب کنید.')
+        return redirect(hall)
+    if not submission_allowed(request, 'listing-report', limit=10, window=3600):
+        messages.warning(request, 'تعداد گزارش‌های شما زیاد بوده است؛ بعداً دوباره تلاش کنید.')
+        return redirect(hall)
+    identity = request.user.pk if request.user.is_authenticated else request.META.get('REMOTE_ADDR', '')
+    reporter_key = hashlib.sha256(f'{settings.SECRET_KEY}:report:{identity}'.encode()).hexdigest()
+    try:
+        with transaction.atomic():
+            ListingReport.objects.create(
+                listing=listing, reason=reason, reporter_key=reporter_key,
+                details=request.POST.get('details', '').strip()[:400],
+            )
+            open_reports = listing.reports.filter(status=ListingReport.Status.OPEN).count()
+            if open_reports >= AUTO_HIDE_REPORTS:
+                # Several independent reports: pull the listing back for review.
+                MarketplaceListing.objects.filter(pk=listing.pk).update(
+                    status=MarketplaceListing.Status.PENDING,
+                    admin_note=(listing.admin_note + '\nبه‌دلیل چند گزارش تخلف، خودکار به بررسی برگشت.').strip()[:5000],
+                )
+    except IntegrityError:
+        messages.info(request, 'گزارش شما برای این آگهی قبلاً ثبت شده است.')
+    else:
+        messages.success(request, 'گزارش ثبت شد و توسط کارشناسان بررسی می‌شود. سپاس از همراهی شما.')
+    return redirect(hall)

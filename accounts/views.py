@@ -323,7 +323,15 @@ def price_alerts_view(request):
     if not profile:
         messages.error(request, 'برای ثبت هشدار قیمت به حساب مشتری تأییدشده نیاز است.')
         return redirect('accounts:profile')
-    form = PriceAlertForm(request.POST if request.method == 'POST' else None)
+    initial = {}
+    variant_param = request.GET.get('variant', '')
+    if request.method == 'GET' and variant_param.isdigit():
+        from catalog.models import ProductVariant
+
+        variant = ProductVariant.objects.filter(pk=int(variant_param), is_active=True).first()
+        if variant:
+            initial = {'variant': variant.pk, 'price_basis': variant.unit, 'currency': 'IRR', 'direction': 'below'}
+    form = PriceAlertForm(request.POST if request.method == 'POST' else None, initial=initial)
     if request.method == 'POST' and form.is_valid():
         alert = form.save(commit=False)
         alert.profile = profile

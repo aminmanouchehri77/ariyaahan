@@ -1,4 +1,8 @@
+import logging
+from datetime import timedelta
 from decimal import Decimal
+
+from django.conf import settings
 
 from django.urls import reverse
 from django.utils import timezone
@@ -6,6 +10,40 @@ from django.utils import timezone
 from pricing.models import PriceObservation
 
 from .models import CustomerNotification, PriceAlert
+
+logger = logging.getLogger(__name__)
+
+
+def _send_alert_sms(notification, observation):
+    """Best-effort SMS for an alert; never raises into the worker."""
+    from core.templatetags.ariaa_tags import money
+
+    from .sms import SMSBackendNotConfigured, SMSDeliveryFailed, get_sms_backend
+
+    profile = notification.profile
+    since = timezone.now() - timedelta(days=1)
+    limit = getattr(settings, 'PRICE_ALERT_SMS_DAILY_LIMIT', 5)
+    sent_today = CustomerNotification.objects.filter(profile=profile, sms_status='sent', created_at__gte=since).count()
+    if sent_today >= limit:
+        status = 'limited'
+    else:
+        try:
+            backend = get_sms_backend()
+            sender = getattr(backend, 'send_price_alert', None)
+            if sender is None:
+                raise SMSBackendNotConfigured
+            sender(
+                profile.mobile,
+                product=f'{observation.variant.product.name} {observation.variant.name}',
+                amount=money(observation.amount, observation.currency),
+            )
+            status = 'sent'
+        except SMSBackendNotConfigured:
+            status = 'skipped'
+        except (SMSDeliveryFailed, Exception) as error:  # noqa: BLE001 - worker must continue
+            logger.warning('Price alert SMS failed (%s).', type(error).__name__)
+            status = 'failed'
+    CustomerNotification.objects.filter(pk=notification.pk).update(sms_status=status)
 
 
 def notify_price_alerts(observation):
@@ -59,7 +97,7 @@ def notify_price_alerts(observation):
         if not reached:
             continue
 
-        _, created = CustomerNotification.objects.get_or_create(
+        notification, created = CustomerNotification.objects.get_or_create(
             profile=alert.profile,
             price_alert=alert,
             price_observation=observation,
@@ -76,6 +114,8 @@ def notify_price_alerts(observation):
                 ),
             },
         )
+        if created and alert.notify_sms:
+            _send_alert_sms(notification, observation)
         if created:
             updates = {'last_notified_at': timezone.now()}
             if alert.condition_type == PriceAlert.ConditionType.PERCENT_CHANGE:

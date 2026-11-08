@@ -1,23 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'accounts/_layout.html' %}
 {% load ariaa_tags %}
 {% block title %}پیگیری درخواست‌ها | حساب آریا{% endblock %}
-{% block meta_description %}وضعیت استعلام‌ها، درخواست‌های شرکت و آگهی‌های ثبت‌شدهٔ خود را پیگیری کنید.{% endblock %}
-{% block robots_meta %}noindex, nofollow{% endblock %}
-{% block content %}
-<section class="page-hero">
-  <div class="container">
-    <nav class="breadcrumbs" aria-label="مسیر صفحه">
-      <a href="{% url 'core:home' %}">خانه</a><span>/</span>
-      <a href="{% url 'accounts:profile' %}">حساب کاربری</a><span>/</span>
-      <span>پیگیری درخواست‌ها</span>
-    </nav>
-    <p class="eyebrow eyebrow--dark">درخواست‌های شما</p>
-    <h1>پیگیری درخواست‌ها</h1>
-    <p>وضعیت و زمان آخرین به‌روزرسانی هر مورد را از این صفحه ببینید.</p>
-  </div>
-</section>
-<section class="section content-section">
-  <div class="container narrow-container">
+{% block account_crumbs %}<span>/</span><span>درخواست‌ها</span>{% endblock %}
+{% block account_icon %}{% icon 'file-text' %}{% endblock %}
+{% block account_title %}پیگیری درخواست‌ها{% endblock %}
+{% block account_lead %}استعلام‌ها، درخواست‌های شرکت و آگهی‌های ثبت‌شده با شمارهٔ شما.{% endblock %}
+{% block account_content %}
     {% if page_obj.object_list %}
       <div class="result-list">
         {% for item in page_obj.object_list %}
@@ -32,11 +20,9 @@
       </div>
       {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="صفحه‌بندی درخواست‌ها">{% if previous_url %}<a href="{{ previous_url }}">صفحهٔ قبل</a>{% endif %}<span>صفحهٔ {{ page_obj.number|fa_digits }} از {{ page_obj.paginator.num_pages|fa_digits }}</span>{% if next_url %}<a href="{{ next_url }}">صفحهٔ بعد</a>{% endif %}</nav>{% endif %}
     {% else %}
-      <div class="empty-state">
+      <div class="empty-state"><span class="empty-state__icon">{% icon 'file-text' %}</span>
         <strong>درخواستی برای پیگیری پیدا نشد</strong>
         <p>درخواست‌هایی که با شمارهٔ تأییدشدهٔ این حساب ثبت شوند، اینجا نمایش داده می‌شوند.</p>
       </div>
     {% endif %}
-  </div>
-</section>
 {% endblock %}

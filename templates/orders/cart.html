@@ -47,6 +47,24 @@
   {% if cart_lines %}<aside class="cart-summary">
     <p class="eyebrow eyebrow--dark">خلاصهٔ برآورد</p><h2>جمع اقلام</h2>
     {% if currency_totals %}<div class="cart-totals">{% for total in currency_totals %}<div><span>جمع برآورد به {{ total.label }}</span><strong>{{ total.amount|money:total.currency }}</strong></div>{% endfor %}</div>{% else %}<p>هنوز جمع قابل محاسبه‌ای وجود ندارد؛ برای اقلام سبد درخواست قیمت ثبت کنید.</p>{% endif %}
+    <div class="shipping-box">
+      <h3>{% icon 'truck' 'i--sm' %} برآورد کرایه و هزینهٔ نهایی</h3>
+      <p class="muted" style="font-size:.84rem">وزن تقریبی سبد: <b>{{ cart_weight_tonnes|floatformat:-3|fa_digits }} تن</b>{% if not cart_weight_complete %} (برای برخی اقلام وزن مرجع ثبت نشده){% endif %}</p>
+      {% if shipping_origins and shipping_destinations %}
+      <form method="get" class="shipping-box__form">
+        <label class="form-field"><span>مبدأ بارگیری</span><select name="origin" class="form-control">{% for city in shipping_origins %}<option value="{{ city }}"{% if city == shipping_origin %} selected{% endif %}>{{ city }}</option>{% endfor %}</select></label>
+        <label class="form-field"><span>مقصد</span><select name="destination" class="form-control">{% for city in shipping_destinations %}<option value="{{ city }}"{% if city == shipping_destination %} selected{% endif %}>{{ city }}</option>{% endfor %}</select></label>
+        <button class="button button--outline button--sm" type="submit">محاسبه</button>
+      </form>
+      {% if shipping_estimate %}
+        <div class="cart-totals">
+          <div><span>کرایهٔ تقریبی ({{ shipping_estimate.weight_tonnes|floatformat:-3|fa_digits }} تن)</span><strong>{{ shipping_estimate.amount|money:shipping_estimate.currency }}</strong></div>
+          {% if grand_total_rial %}<div class="grand-total"><span>جمع تقریبی کالا + حمل</span><strong>{{ grand_total_rial|money:'IRR' }}</strong></div>{% endif %}
+        </div>
+        <small class="muted">نرخ معتبر تا {{ shipping_estimate.rate.valid_until|jalali_datetime }}{% if shipping_estimate.rate.source %} · منبع: {{ shipping_estimate.rate.source }}{% endif %}</small>
+      {% elif shipping_requested %}<p class="cart-warning">برای این مسیر و وزن نرخ معتبری ثبت نشده است؛ هزینهٔ حمل در پیش‌فاکتور اعلام می‌شود.</p>{% endif %}
+      {% else %}<p class="muted" style="font-size:.84rem">نرخ حمل هنوز ثبت نشده؛ کرایه در پیش‌فاکتور اعلام می‌شود.</p>{% endif %}
+    </div>
     {% if has_unpriced_items %}<p class="cart-warning">بعضی اقلام قیمت معتبر یا واحد محاسباتی روشن ندارند؛ مبلغ آن‌ها پس از استعلام مشخص می‌شود.</p>{% endif %}
     <p class="cart-disclaimer">این برآورد پیش‌فاکتور قطعی نیست. قیمت، مالیات، موجودی و حمل باید توسط کارشناس تأیید شود.</p>
     <a class="button button--gold button--full button--lg" href="{% url 'orders:checkout' %}">ادامه و ثبت درخواست {% icon 'arrow-left' 'i--sm' %}</a>

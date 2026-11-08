@@ -14,9 +14,10 @@ from django.views.decorators.http import require_GET
 
 from catalog.models import Category, Manufacturer, Product, ProductVariant
 from content.models import Article, MarketNews
-from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
+from pricing.selectors import attach_sparklines, latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 from pricing.models import PriceObservation, ShippingRate
 from .models import RedirectRule
+from .search import did_you_mean, match_q, normalize_fa
 from .seo import canonical_url
 
 from .forms import ShippingEstimateForm, SteelWeightForm
@@ -57,28 +58,70 @@ def home(request):
         'categories': categories,
         'latest_articles': latest_articles,
         'stats': stats,
-        'featured_variants': mark_stock_state(mark_price_state(list(variants))),
+        'featured_variants': attach_sparklines(mark_stock_state(mark_price_state(list(variants)))),
+        'market_pulse': market_pulse(categories),
         'latest_market_news': latest_market_news,
     })
 
 
+def market_pulse(categories, days=7):
+    """Per root category: average approved price change and rising/falling counts."""
+    from datetime import timedelta
+
+    since = timezone.now() - timedelta(days=days)
+    news = list(MarketNews.objects.filter(published_at__gte=since).values(
+        'variant__product__category_id', 'trend', 'change_percent',
+    ))
+    pulse = []
+    for category in categories:
+        ids = set(category.descendant_ids())
+        rows = [row for row in news if row['variant__product__category_id'] in ids]
+        if not rows:
+            continue
+        average = sum((row['change_percent'] for row in rows), Decimal('0')) / len(rows)
+        pulse.append({
+            'category': category,
+            'average': average.quantize(Decimal('0.01')),
+            'rising': sum(1 for row in rows if row['trend'] == 'rising'),
+            'falling': sum(1 for row in rows if row['trend'] == 'falling'),
+            'count': len(rows),
+        })
+    return pulse[:6]
+
+
 def search(request):
     query = request.GET.get('q', '').strip()[:100]
-    products = Product.objects.none()
+    products = []
+    suggestion = ''
+    categories = []
     if query:
-        products = Product.objects.filter(is_active=True).filter(
-            Q(name__icontains=query)
-            | Q(summary__icontains=query)
-            | Q(category__name__icontains=query)
-            | Q(variants__size__icontains=query)
-            | Q(variants__grade__icontains=query)
-            | Q(variants__standard__icontains=query)
-            | Q(variants__manufacturer__name__icontains=query)
-        ).select_related('category').distinct().order_by('name')[:50]
+        condition = match_q(query)
+        if condition is not None:
+            products = list(
+                Product.objects.filter(is_active=True, category__is_active=True).filter(condition)
+                .select_related('category').distinct().order_by('name')[:50]
+            )
+            categories = list(
+                Category.objects.filter(is_active=True).filter(match_q(query, ('name', 'description')))
+                .order_by('sort_order', 'name')[:8]
+            )
+        if not products:
+            suggestion = did_you_mean(query)
+            if suggestion and normalize_fa(suggestion) != normalize_fa(query):
+                condition = match_q(suggestion)
+                if condition is not None:
+                    products = list(
+                        Product.objects.filter(is_active=True, category__is_active=True).filter(condition)
+                        .select_related('category').distinct().order_by('name')[:50]
+                    )
+            else:
+                suggestion = ''
 
     return render(request, 'core/search.html', {
         'query': query,
         'products': products,
+        'matched_categories': categories,
+        'suggestion': suggestion,
     })
 
 
@@ -86,41 +129,50 @@ def search(request):
 def search_suggestions(request):
     query = request.GET.get('q', '').strip()[:80]
     suggestions = []
-    if len(query) >= 2:
-        products = Product.objects.filter(
-            is_active=True,
-            category__is_active=True,
-        ).filter(
-            Q(name__icontains=query)
-            | Q(summary__icontains=query)
-            | Q(category__name__icontains=query)
-        ).select_related('category').order_by('name')[:6]
-        for product in products:
+    if len(normalize_fa(query)) >= 2:
+        condition = match_q(query, ('name', 'summary', 'category__name'))
+        effective = query
+        if condition is not None and not Product.objects.filter(is_active=True).filter(condition).exists():
+            corrected = did_you_mean(query)
+            if corrected:
+                effective = corrected
+                condition = match_q(corrected, ('name', 'summary', 'category__name'))
+        for category in Category.objects.filter(is_active=True).filter(match_q(effective, ('name',)) or Q(pk=None))[:3]:
             suggestions.append({
-                'label': product.name,
-                'detail': product.category.name,
-                'url': product.get_absolute_url(),
+                'label': category.name,
+                'detail': 'دستهٔ کالا · فهرست قیمت',
+                'url': category.get_absolute_url(),
             })
+        if condition is not None:
+            for product in Product.objects.filter(
+                is_active=True, category__is_active=True,
+            ).filter(condition).select_related('category').distinct().order_by('name')[:6]:
+                suggestions.append({
+                    'label': product.name,
+                    'detail': product.category.name,
+                    'url': product.get_absolute_url(),
+                })
         remaining = max(0, 10 - len(suggestions))
-        if remaining:
+        variant_condition = match_q(effective, (
+            'name', 'size', 'grade', 'standard', 'manufacturer__name', 'product__name',
+        ))
+        if remaining and variant_condition is not None:
             variants = ProductVariant.objects.filter(
                 is_active=True,
                 product__is_active=True,
                 product__category__is_active=True,
-            ).filter(
-                Q(name__icontains=query)
-                | Q(size__icontains=query)
-                | Q(grade__icontains=query)
-                | Q(standard__icontains=query)
-                | Q(manufacturer__name__icontains=query)
-            ).select_related('product', 'manufacturer').order_by('product__name', 'sort_order', 'name')[:remaining]
+            ).filter(variant_condition).select_related('product', 'manufacturer').order_by(
+                'product__name', 'sort_order', 'name',
+            )[:remaining]
             for variant in variants:
                 manufacturer = f' · {variant.manufacturer.name}' if variant.manufacturer else ''
                 suggestions.append({
                     'label': f'{variant.product.name} — {variant.name}',
                     'detail': f'{variant.size or variant.get_unit_display()}{manufacturer}',
-                    'url': variant.product.get_absolute_url(),
+                    'url': f'{variant.product.get_absolute_url()}#variant-{variant.pk}',
                 })
+        if effective != query and suggestions:
+            suggestions[0]['corrected'] = effective
     return JsonResponse({'results': suggestions})
 
 
@@ -218,7 +270,11 @@ def weight_calculator(request):
             'weight_tonnes': (weight / Decimal('1000')).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP),
             'formula': formula,
         }
-    return render(request, 'core/weight_calculator.html', {'form': form, 'result': result})
+    rebar_table = [
+        (size, f'{Decimal(size) ** 2 * Decimal("0.006165375"):.3f}', f'{Decimal(size) ** 2 * Decimal("0.006165375") * 12:.2f}')
+        for size in (6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32)
+    ]
+    return render(request, 'core/weight_calculator.html', {'form': form, 'result': result, 'rebar_table': rebar_table})
 
 
 def shipping_calculator(request):

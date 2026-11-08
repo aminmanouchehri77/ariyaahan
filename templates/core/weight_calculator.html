@@ -3,8 +3,8 @@
 {% block title %}محاسبه‌گر وزن آهن‌آلات | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}وزن تقریبی میلگرد، لوله یا ورق را با واردکردن ابعاد محاسبه کنید یا وزن مرجع را از کاتالوگ بگیرید.{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>محاسبه‌گر وزن</span></nav><p class="eyebrow eyebrow--dark">ابزار خرید دقیق</p><h1>محاسبه‌گر وزن آهن‌آلات</h1><p>وزن نظری را بر پایهٔ ابعاد یا وزن ثبت‌شدهٔ کاتالوگ به دست بیاورید.</p></div></section>
-<section class="section content-section"><div class="container narrow-container">
+<section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><span>محاسبه‌گر وزن</span></nav><span class="page-hero__icon">{% icon 'weight' %}</span><p class="eyebrow">ابزار خرید دقیق</p><h1>محاسبه‌گر وزن آهن‌آلات</h1><p>وزن نظری را بر پایهٔ ابعاد یا وزن ثبت‌شدهٔ کاتالوگ به دست بیاورید.</p></div></section>
+<section class="section content-section"><div class="container inquiry-layout"><div>
   <form class="inquiry-form" method="post" data-weight-calculator>{% csrf_token %}
     {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
     <div class="form-field">{{ form.calculation_type.label_tag }}{{ form.calculation_type }}{{ form.calculation_type.errors }}</div>
@@ -16,10 +16,15 @@
       <div data-weight-fields="catalog" class="form-field">{{ form.variant.label_tag }}{{ form.variant }}{{ form.variant.errors }}</div>
       <div data-weight-fields="round_bar pipe plate catalog" class="form-field">{{ form.count.label_tag }}{{ form.count }}{{ form.count.errors }}</div>
     </div>
-    <button class="button button--navy" type="submit">محاسبهٔ وزن</button>
+    <button class="button button--gold button--lg" type="submit">{% icon 'calculator' %} محاسبهٔ وزن</button>
   </form>
-  {% if result %}<div class="calculator-result" aria-live="polite"><p class="eyebrow eyebrow--dark">نتیجهٔ تقریبی</p><strong>{{ result.weight_kg|fa_digits }} کیلوگرم</strong><span>حدود {{ result.weight_tonnes|fa_digits }} تن</span><small>روش: {{ result.formula }}</small></div>{% endif %}
-  <p class="inquiry-privacy">این برآورد وزن نظری است؛ رواداری ساخت، استاندارد کارخانه، رطوبت یا پوشش سطحی می‌تواند وزن واقعی را تغییر دهد. برای سفارش بر مبنای وزن باسکول، مشخصات فروشنده را ملاک قرار دهید.</p>
+  <p class="inquiry-privacy" style="margin-top:16px">این برآورد وزن نظری است؛ رواداری ساخت، استاندارد کارخانه، رطوبت یا پوشش سطحی می‌تواند وزن واقعی را تغییر دهد. برای سفارش بر مبنای وزن باسکول، مشخصات فروشنده را ملاک قرار دهید.</p>
+</div>
+<aside class="inquiry-aside">
+  {% if result %}<div class="calculator-result" aria-live="polite"><p class="eyebrow">نتیجهٔ تقریبی</p><strong>{{ result.weight_kg|floatformat:-3|fa_digits }} کیلوگرم</strong><br><span>حدود {{ result.weight_tonnes|floatformat:-3|fa_digits }} تن</span><br><small>روش: {{ result.formula }}</small><div class="alert-actions" style="margin-top:12px"><a class="button button--gold button--sm" href="{% url 'catalog:category_list' %}">قیمت روز</a><a class="button button--ghost-light button--sm" href="{% url 'core:shipping_calculator' %}">برآورد حمل</a></div></div>{% endif %}
+  <h2 style="font-size:1.05rem;margin-top:{% if result %}18px{% else %}0{% endif %}">جدول وزن میلگرد (هر متر / شاخهٔ ۱۲ متری)</h2>
+  <div class="table-scroll"><table class="mini-table"><thead><tr><th>قطر</th><th>kg/m</th><th>شاخه ۱۲m</th></tr></thead><tbody>{% for row in rebar_table %}<tr><td>{{ row.0|fa_digits }}</td><td>{{ row.1|fa_digits }}</td><td>{{ row.2|fa_digits }}</td></tr>{% endfor %}</tbody></table></div>
+</aside>
 </div></section>
 {% endblock %}
 {% block extra_js %}<script>

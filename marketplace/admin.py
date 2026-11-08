@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import CustomerNotification
-from .models import MarketplaceListing
+from .models import ListingReport, MarketplaceListing
 
 
 @admin.register(MarketplaceListing)
@@ -45,3 +45,15 @@ class MarketplaceListingAdmin(admin.ModelAdmin):
                 body=f'{obj.get_kind_display()}: {obj.get_status_display()}',
                 target_url=reverse('marketplace:listing_status', kwargs={'public_id': obj.public_id}),
             )
+
+
+@admin.register(ListingReport)
+class ListingReportAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'listing', 'reason', 'status')
+    list_filter = ('status', 'reason', 'created_at')
+    search_fields = ('listing__product_label', 'details')
+    readonly_fields = ('listing', 'reason', 'details', 'reporter_key', 'created_at')
+    list_editable = ('status',)
+
+    def has_add_permission(self, request):
+        return False

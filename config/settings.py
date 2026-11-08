@@ -86,6 +86,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.audit.AuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -160,6 +161,8 @@ LOGOUT_REDIRECT_URL = 'core:home'
 KAVENEGAR_API_KEY = os.getenv('KAVENEGAR_API_KEY', '').strip()
 KAVENEGAR_OTP_TEMPLATE = os.getenv('KAVENEGAR_OTP_TEMPLATE', '').strip()
 KAVENEGAR_ACCEPT_TEMPLATE = os.getenv('KAVENEGAR_ACCEPT_TEMPLATE', '').strip()
+KAVENEGAR_ALERT_TEMPLATE = os.getenv('KAVENEGAR_ALERT_TEMPLATE', '').strip()
+PRICE_ALERT_SMS_DAILY_LIMIT = int(os.getenv('PRICE_ALERT_SMS_DAILY_LIMIT', '5'))
 KAVENEGAR_TIMEOUT = float(os.getenv('KAVENEGAR_TIMEOUT', '10'))
 DEFAULT_SMS_BACKEND = (
     'accounts.sms.KavenegarVerifyLookupBackend'
@@ -281,6 +284,8 @@ ENAMAD_META_CODE = os.getenv('ENAMAD_META_CODE', '').strip()
 SAMANDEHI_ID = os.getenv('SAMANDEHI_ID', '').strip()
 SAMANDEHI_CODE = os.getenv('SAMANDEHI_CODE', '').strip()
 
+CAREER_RETENTION_DAYS = int(os.getenv('CAREER_RETENTION_DAYS', '180'))
+REQUEST_RETENTION_DAYS = int(os.getenv('REQUEST_RETENTION_DAYS', '730'))
 FORM_SUBMISSION_LIMIT = int(os.getenv('FORM_SUBMISSION_LIMIT', '6'))
 FORM_SUBMISSION_WINDOW = int(os.getenv('FORM_SUBMISSION_WINDOW', '600'))
 
@@ -289,6 +294,7 @@ FORM_SUBMISSION_WINDOW = int(os.getenv('FORM_SUBMISSION_WINDOW', '600'))
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
 LANGUAGE_CODE = 'fa-ir'
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 TIME_ZONE = 'Asia/Tehran'
 

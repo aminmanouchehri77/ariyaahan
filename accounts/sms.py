@@ -38,6 +38,9 @@ class ConsoleSMSBackend:
     def send_preinvoice_acceptance_code(self, mobile, code):
         print(f'[LOCAL SMS to {mobile}] کد تأیید پذیرش پیش‌فاکتور آهن‌آلات آریا: {code}', flush=True)
 
+    def send_price_alert(self, mobile, *, product, amount):
+        print(f'[LOCAL SMS to {mobile}] هشدار قیمت آریا: {product} — {amount}', flush=True)
+
 
 class KavenegarVerifyLookupBackend:
     """Send purpose-specific codes through Kavenegar's Verify Lookup endpoint."""
@@ -60,18 +63,34 @@ class KavenegarVerifyLookupBackend:
         self.validate_send_preinvoice_acceptance_code()
         self._send_verify_lookup(mobile, code, self.acceptance_template)
 
+    def send_price_alert(self, mobile, *, product, amount):
+        """Price-alert SMS via a dedicated Verify Lookup template.
+
+        Template example: «قیمت %token10 به %token رسید. آهن‌آلات آریا».
+        token must not contain spaces; token10 allows up to five spaces.
+        """
+        template = getattr(settings, 'KAVENEGAR_ALERT_TEMPLATE', '')
+        if not template or not re.fullmatch(r'[A-Za-z0-9-]+', template):
+            raise SMSBackendNotConfigured
+        words = str(product).split()[:6]
+        self._send_verify_lookup(
+            mobile, re.sub(r'\s+', '', str(amount))[:90], template, extra={'token10': ' '.join(words)[:90]},
+        )
+
     def validate_send_preinvoice_acceptance_code(self):
         if not self.acceptance_template or not re.fullmatch(r'[A-Za-z0-9-]+', self.acceptance_template):
             raise SMSBackendNotConfigured
 
-    def _send_verify_lookup(self, mobile, code, template):
+    def _send_verify_lookup(self, mobile, code, template, extra=None):
         path = f'/v1/{quote(self.api_key, safe="")}/verify/lookup.json'
-        body = urlencode({
+        fields = {
             'receptor': mobile,
             'token': code,
             'template': template,
             'type': 'sms',
-        }).encode('ascii')
+        }
+        fields.update(extra or {})
+        body = urlencode(fields).encode('utf-8')
         connection = http.client.HTTPSConnection(self.host, timeout=settings.KAVENEGAR_TIMEOUT)
         try:
             connection.request(

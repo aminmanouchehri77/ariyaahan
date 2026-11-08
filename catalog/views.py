@@ -15,10 +15,14 @@ from content.forms import ProductQuestionForm, ProductReviewForm
 from content.models import Article, ProductQuestion, ProductReview
 from core.seo import breadcrumb_schema, canonical_url
 from pricing.models import PriceObservation
-from pricing.selectors import latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
+from pricing.selectors import (
+    attach_sparklines, attach_unit_prices, latest_stock_observations, mark_best_prices, mark_price_state,
+    mark_stock_state, with_latest_price,
+)
 
 from .forms import CategoryFilterForm
 from .models import Category, Product, ProductVariant
+from .columns import columns_for, spec_cells
 from .compare import COMPARE_LIMIT, add_variant, get_variant_ids, profile_for_request, remove_variant
 
 
@@ -103,7 +107,10 @@ def category_detail(request, slug):
 
     has_variants = variants.exists()
     page = Paginator(variants, 24).get_page(request.GET.get('page'))
-    page.object_list = mark_stock_state(mark_price_state(list(page.object_list)))
+    page.object_list = attach_sparklines(mark_best_prices(mark_stock_state(mark_price_state(list(page.object_list)))))
+    family_columns = columns_for(category)
+    for variant in page.object_list:
+        variant.spec_cells = spec_cells(variant, family_columns)
     query_without_page = request.GET.copy()
     query_without_page.pop('page', None)
     has_active_filters = any(value for key, value in query_without_page.items() if key in filters.fields)
@@ -138,6 +145,7 @@ def category_detail(request, slug):
     return render(request, 'catalog/category_detail.html', {
         'category': category,
         'subcategories': subcategories,
+        'family_columns': family_columns,
         'ancestors': ancestors,
         'page_obj': page,
         'filters': filters,
@@ -166,7 +174,7 @@ def product_detail(request, slug):
     variants = latest_stock_observations(with_latest_price(
         product.variants.filter(is_active=True).select_related('manufacturer')
     )).order_by('sort_order', 'name')
-    variants = mark_stock_state(mark_price_state(list(variants)))
+    variants = attach_unit_prices(attach_sparklines(mark_best_prices(mark_stock_state(mark_price_state(list(variants))))))
     customer_profile = CustomerProfile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
     questions = ProductQuestion.objects.filter(
         product=product,
@@ -257,6 +265,7 @@ def product_detail(request, slug):
             'display_name': customer_profile.full_name if customer_profile else '',
         }) if customer_profile else None,
         'question_account_missing': request.user.is_authenticated and customer_profile is None,
+        'projects': list(customer_profile.projects.all()[:20]) if customer_profile else [],
         'product_schema': schema,
         'breadcrumb_schema': breadcrumb_schema(request, [
             ('خانه', '/'), ('دسته‌بندی کالا', reverse('catalog:category_list')),
@@ -278,7 +287,14 @@ def compare(request):
             product__category__is_active=True,
         ).select_related('product', 'product__category', 'manufacturer')
     ))
-    by_id = {variant.pk: variant for variant in mark_stock_state(mark_price_state(list(variants)))}
+    marked = mark_stock_state(mark_price_state(list(variants)))
+    priced = [v for v in marked if v.latest_amount is not None and v.latest_available and not v.price_expired and not v.price_validity_unknown]
+    for variant in marked:
+        variant.is_best_price = False
+    comparable = {(v.latest_currency, v.latest_price_basis) for v in priced}
+    if len(priced) > 1 and len(comparable) == 1:
+        min(priced, key=lambda v: v.latest_amount).is_best_price = True
+    by_id = {variant.pk: variant for variant in marked}
     ordered = [by_id[value] for value in variant_ids if value in by_id]
     return render(request, 'catalog/compare.html', {
         'variants': ordered,
@@ -327,6 +343,7 @@ def price_history(request, slug):
         selected_variant = active_variants.order_by('sort_order', 'name').first()
     observations = []
     chart_points = ''
+    chart_area = ''
     series_location = ''
     min_amount = max_amount = None
     ranges = {
@@ -386,6 +403,7 @@ def price_history(request, slug):
                     y = 195 - round(float(offset) * 160)
                     coordinates.append(f'{x},{y}')
                 chart_points = ' '.join(coordinates)
+                chart_area = f'30,195 {chart_points} 690,195'
             page_obj = Paginator(series.order_by('-observed_at', '-pk'), 50).get_page(request.GET.get('page'))
             observations = page_obj.object_list
     return render(request, 'catalog/price_history.html', {
@@ -394,6 +412,7 @@ def price_history(request, slug):
         'selected_variant': selected_variant,
         'observations': observations,
         'chart_points': chart_points,
+        'chart_area': chart_area,
         'series_location': series_location,
         'series_tax_included': latest.tax_included if selected_variant and latest else None,
         'series_currency': series_currency,
@@ -407,3 +426,42 @@ def price_history(request, slug):
         'min_amount': min_amount,
         'max_amount': max_amount,
     })
+
+
+@require_GET
+def category_price_list(request, slug):
+    """Downloadable price list (CSV, Excel-compatible UTF-8 with BOM)."""
+    import csv
+
+    from django.http import HttpResponse
+
+    from core.templatetags.ariaa_tags import jalali_datetime
+
+    category = get_object_or_404(Category, slug=slug, is_active=True)
+    columns = columns_for(category)
+    variants = mark_stock_state(mark_price_state(list(latest_stock_observations(with_latest_price(
+        ProductVariant.objects.filter(
+            product__category_id__in=category.descendant_ids(), product__is_active=True, is_active=True,
+        ).select_related('product', 'manufacturer')
+    )).order_by('product__name', 'sort_order', 'name'))))
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="aria-price-list-{category.slug}.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['محصول', 'گونه', 'کارخانه', *[label for label, _ in columns], 'قیمت', 'ارز', 'مبنا',
+                     'محل تحویل', 'زمان ثبت', 'اعتبار تا', 'وضعیت قیمت', 'موجودی'])
+    for variant in variants:
+        state = (
+            'بدون قیمت' if variant.latest_amount is None else
+            'منقضی' if variant.price_expired else
+            'اعتبار نامشخص' if variant.price_validity_unknown else 'معتبر'
+        )
+        writer.writerow([
+            variant.product.name, variant.name, variant.manufacturer or '',
+            *[cell['value'] for cell in spec_cells(variant, columns)],
+            variant.latest_amount or '', variant.latest_currency or '', variant.latest_unit_label or '',
+            variant.latest_location or '', jalali_datetime(variant.latest_observed_at),
+            jalali_datetime(variant.latest_valid_until), state, variant.stock_status,
+        ])
+    response['Cache-Control'] = 'no-store'
+    return response

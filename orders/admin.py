@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 
-from .models import Order, OrderItem, OrderStatusEvent, PaymentRecord, PreInvoice, PreInvoiceItem
+from .models import Order, OrderItem, OrderStatusEvent, PaymentRecord, PreInvoice, PreInvoiceItem, ProjectList, ProjectListItem
 from .payment_services import PaymentStateConflict, reverse_payment, verify_payment
 from .sep import SEPError
 from .services import convert_preinvoice_to_order, issue_preinvoice_quote
@@ -227,3 +227,17 @@ class PaymentRecordAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class ProjectListItemInline(admin.TabularInline):
+    model = ProjectListItem
+    extra = 0
+    raw_id_fields = ('variant',)
+
+
+@admin.register(ProjectList)
+class ProjectListAdmin(admin.ModelAdmin):
+    list_display = ('title', 'profile', 'is_shared', 'updated_at')
+    search_fields = ('title', 'profile__mobile')
+    readonly_fields = ('public_id', 'created_at', 'updated_at')
+    inlines = (ProjectListItemInline,)

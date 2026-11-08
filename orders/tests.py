@@ -217,3 +217,41 @@ class SEPClientTests(TestCase):
         client = SEPClient(transport=lambda url, payload: {'status': -1, 'errorCode': '5'})
         with self.assertRaises(SEPError):
             client.request_token(amount_rial=1000, res_num='x', redirect_url='https://a/cb')
+
+
+class ProjectListTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user('builder')
+        self.profile = CustomerProfile.objects.create(user=self.user, mobile='09125555555')
+        category = Category.objects.create(name='ت', slug='t-cat')
+        product = Product.objects.create(category=category, name='تیرآهن', slug='beam-p')
+        self.variant = ProductVariant.objects.create(product=product, name='۱۴', unit='piece', weight_per_unit_kg=Decimal('154.8'))
+        self.client.force_login(self.user)
+
+    def test_add_item_creates_project_and_estimates_weight(self):
+        response = self.client.post(reverse('orders:project_add_item', args=[self.variant.pk]), {'project': 'new', 'title': 'برج', 'quantity': '10'})
+        from .models import ProjectList
+        project = ProjectList.objects.get(profile=self.profile)
+        self.assertRedirects(response, reverse('orders:project_detail', args=[project.public_id]), fetch_redirect_response=False)
+        page = self.client.get(reverse('orders:project_detail', args=[project.public_id]))
+        self.assertEqual(page.context['total_weight_kg'], Decimal('1548.00'))
+
+    def test_project_to_cart_and_sharing(self):
+        from .models import ProjectList, ProjectListItem
+        project = ProjectList.objects.create(profile=self.profile, title='ویلا')
+        ProjectListItem.objects.create(project=project, variant=self.variant, quantity=Decimal('3'))
+        self.client.post(reverse('orders:project_update', args=[project.public_id]), {'action': 'to_cart'})
+        self.assertEqual(self.client.session['ariaa_cart'], {str(self.variant.pk): '3.000'})
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('orders:project_shared', args=[project.public_id])).status_code, 404)
+        project.is_shared = True
+        project.save()
+        self.assertEqual(self.client.get(reverse('orders:project_shared', args=[project.public_id])).status_code, 200)
+
+    def test_other_customer_cannot_open_project(self):
+        from .models import ProjectList
+        project = ProjectList.objects.create(profile=self.profile, title='خصوصی')
+        other = get_user_model().objects.create_user('other')
+        CustomerProfile.objects.create(user=other, mobile='09126666666')
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(reverse('orders:project_detail', args=[project.public_id])).status_code, 404)

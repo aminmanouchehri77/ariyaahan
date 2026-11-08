@@ -1,34 +1,42 @@
 {% extends 'base.html' %}
+{% load static ariaa_tags %}
 {% block title %}تأیید شمارهٔ همراه | آهن‌آلات آریا{% endblock %}
 {% block meta_description %}تأیید امن شمارهٔ همراه برای ورود به حساب مشتریان آهن‌آلات آریا.{% endblock %}
 {% block robots_meta %}noindex, nofollow{% endblock %}
+{% block footer_cta %}{% endblock %}
 {% block content %}
-<section class="page-hero"><div class="container">
-  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'accounts:login' %}?change=1">ورود</a><span>/</span><span>تأیید شماره</span></nav>
-  <p class="eyebrow eyebrow--dark">یک گام تا ورود</p>
-  <h1>کد تأیید را وارد کنید</h1>
-  <p>کد شش‌رقمی ارسال‌شده به <strong dir="ltr">{{ masked_mobile }}</strong> را وارد کنید.</p>
-</div></section>
-<section class="section content-section">
-  <div class="container account-layout account-layout--single">
-    <form class="inquiry-form account-card" method="post" novalidate>
-      {% csrf_token %}
-      {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-      <div class="form-field {% if form.code.errors %}form-field--error{% endif %}">
-        {{ form.code.label_tag }}{{ form.code }}{% if form.code.errors %}<div class="form-errors" role="alert">{{ form.code.errors }}</div>{% endif %}
-      </div>
-      <div class="form-field {% if form.full_name.errors %}form-field--error{% endif %}">
-        {{ form.full_name.label_tag }}{{ form.full_name }}{% if form.full_name.errors %}<div class="form-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
-      </div>
-      <button class="button button--gold button--full" type="submit">تأیید و ورود</button>
-    </form>
-    <div class="account-secondary-actions">
-      <form method="post" action="{% url 'accounts:resend' %}">
+<section class="section auth-section">
+  <div class="container auth-shell">
+    <div class="auth-card inquiry-form">
+      <form method="post" novalidate>
         {% csrf_token %}
-        <button class="button button--outline button--full" type="submit">ارسال دوبارهٔ کد</button>
+        <span class="page-hero__icon auth-card__icon">{% icon 'shield-check' %}</span>
+        <h1>کد تأیید را وارد کنید</h1>
+        <p class="account-card__lead">کد شش‌رقمی به <strong dir="ltr">{{ masked_mobile }}</strong> ارسال شد.</p>
+        {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="form-field {% if form.code.errors %}form-field--error{% endif %}">
+          {{ form.code.label_tag }}{{ form.code }}{% if form.code.errors %}<div class="form-errors" role="alert">{{ form.code.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field {% if form.full_name.errors %}form-field--error{% endif %}">
+          {{ form.full_name.label_tag }}{{ form.full_name }}{% if form.full_name.errors %}<div class="form-errors" role="alert">{{ form.full_name.errors }}</div>{% endif %}
+        </div>
+        <button class="button button--gold button--full button--lg" type="submit">{% icon 'check' %} تأیید و ورود</button>
       </form>
-      <a class="button button--text button--full" href="{% url 'accounts:login' %}?change=1">تغییر شمارهٔ همراه</a>
+      <div class="auth-card__secondary">
+        <form method="post" action="{% url 'accounts:resend' %}">{% csrf_token %}<button class="button button--outline button--full" type="submit">{% icon 'refresh-cw' %} ارسال دوبارهٔ کد</button></form>
+        <a class="button button--text button--full" href="{% url 'accounts:login' %}?change=1">{% icon 'pencil' 'i--sm' %} تغییر شمارهٔ همراه</a>
+      </div>
     </div>
+    <aside class="auth-visual" aria-hidden="true">
+      <p class="eyebrow">ورود امن</p>
+      <h2>یک گام تا<br>حساب کاربری</h2>
+      <ul>
+        <li>{% icon 'timer' %} اعتبار کد: ۵ دقیقه</li>
+        <li>{% icon 'lock' %} حداکثر ۵ تلاش برای هر کد</li>
+        <li>{% icon 'shield-check' %} نشست امن با کوکی محافظت‌شده</li>
+      </ul>
+      <img src="{% static 'core/img/products/beam.webp' %}" alt="" width="960" height="720" loading="lazy">
+    </aside>
   </div>
 </section>
 {% endblock %}

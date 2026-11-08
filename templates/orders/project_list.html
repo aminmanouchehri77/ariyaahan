@@ -1,0 +1,27 @@
+{% extends 'accounts/_layout.html' %}
+{% load ariaa_tags %}
+{% block title %}فهرست‌های خرید پروژه | حساب آریا{% endblock %}
+{% block account_crumbs %}<span>/</span><span>پروژه‌ها</span>{% endblock %}
+{% block account_icon %}{% icon 'boxes' %}{% endblock %}
+{% block account_title %}فهرست خرید پروژه‌ها{% endblock %}
+{% block account_lead %}اقلام هر پروژه را یک‌جا نگه دارید؛ وزن کل و برآورد قیمت روز را ببینید و با یک کلیک به سبد ببرید.{% endblock %}
+{% block account_content %}
+<form class="inline-create" method="post">{% csrf_token %}
+  <label class="visually-hidden" for="project-title">نام پروژه</label>
+  <input id="project-title" class="form-control" name="title" maxlength="120" placeholder="نام پروژهٔ جدید، مثلاً ساختمان مسکونی ۵ طبقه" required>
+  <input class="form-control" name="note" maxlength="300" placeholder="یادداشت (اختیاری)">
+  <button class="button button--gold" type="submit">{% icon 'plus' %} ساخت پروژه</button>
+</form>
+{% if projects %}
+<div class="card-grid">{% for project in projects %}
+  <a class="project-card" href="{% url 'orders:project_detail' project.public_id %}">
+    <span class="project-card__icon">{% icon 'building-2' %}</span>
+    <strong>{{ project.title }}</strong>
+    {% if project.note %}<span class="muted">{{ project.note }}</span>{% endif %}
+    <span class="project-card__meta"><span>{{ project.items.all|length|fa_digits }} قلم کالا</span><span>{{ project.updated_at|jalali_date }}</span>{% if project.is_shared %}<span class="tag tag--info">اشتراکی</span>{% endif %}</span>
+  </a>
+{% endfor %}</div>
+{% else %}
+<div class="empty-state"><span class="empty-state__icon">{% icon 'boxes' %}</span><strong>هنوز پروژه‌ای ندارید</strong><p>یک پروژه بسازید یا از صفحهٔ هر کالا گزینهٔ «ذخیره در فهرست خرید پروژه» را بزنید.</p><a class="button button--outline" href="{% url 'catalog:category_list' %}">مرور محصولات</a></div>
+{% endif %}
+{% endblock %}
