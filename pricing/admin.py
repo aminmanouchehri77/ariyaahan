@@ -153,9 +153,9 @@ class StockObservationAdmin(admin.ModelAdmin):
 @admin.register(ShippingRate)
 class ShippingRateAdmin(admin.ModelAdmin):
     list_display = (
-        'origin_city', 'destination_city', 'minimum_tonnes', 'maximum_tonnes',
+        'origin_city', 'destination_city', 'method', 'minimum_tonnes', 'maximum_tonnes',
         'base_fee', 'per_tonne', 'currency', 'valid_until', 'is_active',
     )
-    list_filter = ('is_active', 'currency', 'origin_city', 'destination_city', 'valid_until')
+    list_filter = ('is_active', 'method', 'currency', 'origin_city', 'destination_city', 'valid_until')
     search_fields = ('origin_city', 'destination_city', 'source')
     ordering = ('origin_city', 'destination_city', 'minimum_tonnes')

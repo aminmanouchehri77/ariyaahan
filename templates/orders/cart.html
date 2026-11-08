@@ -54,6 +54,7 @@
       <form method="get" class="shipping-box__form">
         <label class="form-field"><span>مبدأ بارگیری</span><select name="origin" class="form-control">{% for city in shipping_origins %}<option value="{{ city }}"{% if city == shipping_origin %} selected{% endif %}>{{ city }}</option>{% endfor %}</select></label>
         <label class="form-field"><span>مقصد</span><select name="destination" class="form-control">{% for city in shipping_destinations %}<option value="{{ city }}"{% if city == shipping_destination %} selected{% endif %}>{{ city }}</option>{% endfor %}</select></label>
+        {% if shipping_methods %}<label class="form-field"><span>روش ارسال</span><select name="method" class="form-control"><option value="">فرقی ندارد</option>{% for value, label in shipping_methods %}<option value="{{ value }}"{% if value == shipping_method %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
         <button class="button button--outline button--sm" type="submit">محاسبه</button>
       </form>
       {% if shipping_estimate %}
@@ -61,7 +62,7 @@
           <div><span>کرایهٔ تقریبی ({{ shipping_estimate.weight_tonnes|floatformat:-3|fa_digits }} تن)</span><strong>{{ shipping_estimate.amount|money:shipping_estimate.currency }}</strong></div>
           {% if grand_total_rial %}<div class="grand-total"><span>جمع تقریبی کالا + حمل</span><strong>{{ grand_total_rial|money:'IRR' }}</strong></div>{% endif %}
         </div>
-        <small class="muted">نرخ معتبر تا {{ shipping_estimate.rate.valid_until|jalali_datetime }}{% if shipping_estimate.rate.source %} · منبع: {{ shipping_estimate.rate.source }}{% endif %}</small>
+        <small class="muted">{% if shipping_estimate.rate.method %}{{ shipping_estimate.rate.get_method_display }} · {% endif %}نرخ معتبر تا {{ shipping_estimate.rate.valid_until|jalali_datetime }}{% if shipping_estimate.rate.source %} · منبع: {{ shipping_estimate.rate.source }}{% endif %}</small>
       {% elif shipping_requested %}<p class="cart-warning">برای این مسیر و وزن نرخ معتبری ثبت نشده است؛ هزینهٔ حمل در پیش‌فاکتور اعلام می‌شود.</p>{% endif %}
       {% else %}<p class="muted" style="font-size:.84rem">نرخ حمل هنوز ثبت نشده؛ کرایه در پیش‌فاکتور اعلام می‌شود.</p>{% endif %}
     </div>

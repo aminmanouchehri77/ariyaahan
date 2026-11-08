@@ -283,26 +283,11 @@ def shipping_calculator(request):
     result = None
     unavailable = False
     if request.method == 'POST' and form.is_valid():
+        from pricing.shipping import estimate
+
         data = form.cleaned_data
-        now = timezone.now()
-        rate = ShippingRate.objects.filter(
-            origin_city=data['origin_city'],
-            destination_city=data['destination_city'],
-            is_active=True,
-            valid_until__gt=now,
-            minimum_tonnes__lte=data['weight_tonnes'],
-        ).filter(
-            Q(maximum_tonnes__isnull=True) | Q(maximum_tonnes__gte=data['weight_tonnes'])
-        ).order_by('-minimum_tonnes', 'per_tonne').first()
-        if rate:
-            amount = rate.base_fee + rate.per_tonne * data['weight_tonnes']
-            result = {
-                'rate': rate,
-                'amount': amount.quantize(Decimal('1'), rounding=ROUND_HALF_UP),
-                'weight_tonnes': data['weight_tonnes'],
-            }
-        else:
-            unavailable = True
+        result = estimate(data['origin_city'], data['destination_city'], data['weight_tonnes'], data.get('method') or '')
+        unavailable = result is None
     return render(request, 'core/shipping_calculator.html', {
         'form': form, 'result': result, 'unavailable': unavailable, 'routes_available': routes_available,
     })

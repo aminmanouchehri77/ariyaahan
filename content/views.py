@@ -132,19 +132,20 @@ def article_list(request):
 
 
 def article_detail(request, slug):
-    article = get_object_or_404(
-        Article.objects.prefetch_related('tags', 'related_products'),
-        slug=slug,
-        status=Article.Status.PUBLISHED,
-        published_at__lte=timezone.now(),
-    )
+    articles = Article.objects.prefetch_related('tags', 'related_products')
+    # Editors can preview drafts and scheduled articles before publishing.
+    preview = request.GET.get('preview') == '1' and request.user.has_perm('content.change_article')
+    if preview:
+        article = get_object_or_404(articles, slug=slug)
+    else:
+        article = get_object_or_404(articles, slug=slug, status=Article.Status.PUBLISHED, published_at__lte=timezone.now())
     absolute_url = canonical_url(request, article.get_absolute_url())
     schema = {
         '@context': 'https://schema.org',
         '@type': 'Article',
         'headline': article.title,
         'description': article.meta_description or article.excerpt,
-        'datePublished': article.published_at.isoformat(),
+        'datePublished': (article.published_at or article.created_at).isoformat(),
         'dateModified': article.updated_at.isoformat(),
         'mainEntityOfPage': absolute_url,
         'author': {'@type': 'Person', 'name': article.author_name or 'تحریریهٔ آهن‌آلات آریا'},
@@ -159,8 +160,9 @@ def article_detail(request, slug):
         article=article,
         status=ArticleComment.Status.APPROVED,
     ).order_by('published_at', 'pk')[:50]
-    return render(request, 'content/article_detail.html', {
+    response = render(request, 'content/article_detail.html', {
         'article': article,
+        'is_preview': preview,
         'related_products': article.related_products.filter(is_active=True, category__is_active=True),
         'article_comments': comments,
         'article_comment_form': ArticleCommentForm() if profile else None,
@@ -171,6 +173,10 @@ def article_detail(request, slug):
             (article.title, article.get_absolute_url()),
         ]),
     })
+    if preview:
+        response['Cache-Control'] = 'private, no-store'
+        response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
 
 
 def media_list(request, kind):

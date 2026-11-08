@@ -1,10 +1,8 @@
 from decimal import Decimal
 
 from django import forms
-from django.utils import timezone
 
 from catalog.models import ProductVariant
-from pricing.models import ShippingRate
 
 
 class SteelWeightForm(forms.Form):
@@ -67,11 +65,18 @@ class ShippingEstimateForm(forms.Form):
         max_digits=12, decimal_places=3, widget=forms.NumberInput(attrs={'step': '0.001', 'inputmode': 'decimal'}),
     )
 
+    method = forms.ChoiceField(label='روش ارسال', required=False)
+
     def __init__(self, *args, **kwargs):
+        from pricing.shipping import active_methods, active_routes
+
         super().__init__(*args, **kwargs)
-        routes = ShippingRate.objects.filter(is_active=True, valid_until__gt=timezone.now())
-        origins = sorted(set(routes.values_list('origin_city', flat=True)))
-        destinations = sorted(set(routes.values_list('destination_city', flat=True)))
+        origins, destinations = active_routes()
+        methods = active_methods()
+        if methods:
+            self.fields['method'].choices = [('', 'فرقی ندارد')] + methods
+        else:
+            del self.fields['method']
         self.fields['origin_city'].choices = [('', 'انتخاب مبدأ')] + [(value, value) for value in origins]
         self.fields['destination_city'].choices = [('', 'انتخاب مقصد')] + [(value, value) for value in destinations]
         for field in self.fields.values():

@@ -292,8 +292,18 @@ class StockObservation(models.Model):
 
 
 class ShippingRate(models.Model):
+    class Method(models.TextChoices):
+        ANY = '', 'همهٔ روش‌ها (بدون تفکیک)'
+        TRAILER = 'trailer', 'تریلی'
+        TRUCK = 'truck', 'کامیون ده‌چرخ'
+        LIGHT = 'light', 'خاور / کامیونت'
+
     origin_city = models.CharField('مبدأ', max_length=100, db_index=True)
     destination_city = models.CharField('مقصد', max_length=100, db_index=True)
+    method = models.CharField(
+        'روش ارسال', max_length=12, choices=Method.choices, blank=True, default='', db_index=True,
+        help_text='خالی یعنی نرخ برای هر روش ارسال معتبر است.',
+    )
     minimum_tonnes = models.DecimalField('حداقل وزن (تن)', max_digits=10, decimal_places=3, default=0)
     maximum_tonnes = models.DecimalField('حداکثر وزن (تن)', max_digits=10, decimal_places=3, null=True, blank=True)
     base_fee = models.DecimalField('هزینهٔ ثابت', max_digits=18, decimal_places=0, default=0, validators=[MinValueValidator(0)])
@@ -314,4 +324,5 @@ class ShippingRate(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.origin_city} ← {self.destination_city} — {self.per_tonne} / تن'
+        method = f' ({self.get_method_display()})' if self.method else ''
+        return f'{self.origin_city} ← {self.destination_city}{method} — {self.per_tonne} / تن'

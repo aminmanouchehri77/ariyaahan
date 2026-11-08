@@ -2,11 +2,13 @@
 {% load ariaa_tags %}
 {% block title %}{{ article.seo_title|default:article.title }} | مجلهٔ آریا{% endblock %}
 {% block meta_description %}{{ article.meta_description|default:article.excerpt }}{% endblock %}
+{% block robots_meta %}{% if is_preview %}noindex, nofollow{% else %}{{ block.super }}{% endif %}{% endblock %}
 {% block og_title %}{{ article.title }}{% endblock %}
 {% block extra_head %}<script type="application/ld+json">{{ article_schema|safe }}</script>{% endblock %}
 {% block structured_data %}<script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>{% endblock %}
 {% block content %}
 <div class="reading-progress" data-reading-progress aria-hidden="true"></div>
+{% if is_preview %}<div class="preview-banner" role="status">{% icon 'eye' %} پیش‌نمایش ویرایشگر — وضعیت: <strong>{{ article.get_status_display }}</strong>{% if article.status != 'published' %}؛ این مقاله هنوز برای کاربران منتشر نشده است{% endif %}. <a href="{% url 'admin:content_article_change' article.pk %}">بازگشت به ویرایش</a></div>{% endif %}
 <section class="page-hero article-hero">
   <div class="container narrow-container">
     <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="{% url 'core:home' %}">خانه</a><span>/</span><a href="{% url 'content:article_list' %}">مجله</a><span>/</span><span>{{ article.title }}</span></nav>

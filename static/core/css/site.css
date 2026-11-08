@@ -1384,3 +1384,8 @@ kbd { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1px s
   .page-hero { background: none; color: #000; }
   .page-hero h1, .page-hero p { color: #000; }
 }
+
+/* Editor preview of unpublished articles */
+.preview-banner { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 16px; background: var(--molten, #ff6a1a); color: #1a1208; font-size: .9rem; }
+.preview-banner a { color: inherit; font-weight: 700; text-decoration: underline; }
+.preview-banner svg { width: 18px; height: 18px; }

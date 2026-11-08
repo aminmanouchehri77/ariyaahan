@@ -12,22 +12,25 @@ class CompanyRequestForm(forms.ModelForm):
         model = CompanyRequest
         fields = (
             'name', 'mobile', 'email', 'company_name', 'subject',
-            'destination_country', 'product_interest', 'experience_years', 'message', 'consent',
+            'destination_country', 'product_interest', 'quantity_tonnes', 'delivery_terms',
+            'experience_years', 'message', 'consent',
         )
         widgets = {
             'mobile': forms.TextInput(attrs={'autocomplete': 'tel', 'inputmode': 'tel', 'dir': 'ltr', 'placeholder': '۰۹۱۲۳۴۵۶۷۸۹'}),
             'message': forms.Textarea(attrs={'rows': 5, 'maxlength': 5000}),
             'experience_years': forms.NumberInput(attrs={'min': '0', 'max': '60', 'step': '1'}),
+            'quantity_tonnes': forms.NumberInput(attrs={'min': '0.001', 'step': '0.001', 'inputmode': 'decimal'}),
         }
 
     def __init__(self, *args, kind, **kwargs):
         super().__init__(*args, **kwargs)
         self.kind = kind
         if kind in {CompanyRequest.Kind.COMPLAINT, CompanyRequest.Kind.FEEDBACK}:
-            for name in ('company_name', 'subject', 'destination_country', 'product_interest', 'experience_years'):
+            for name in ('company_name', 'subject', 'destination_country', 'product_interest',
+                         'quantity_tonnes', 'delivery_terms', 'experience_years'):
                 self.fields.pop(name)
         elif kind == CompanyRequest.Kind.CAREER:
-            for name in ('destination_country', 'product_interest', 'company_name'):
+            for name in ('destination_country', 'product_interest', 'company_name', 'quantity_tonnes', 'delivery_terms'):
                 self.fields.pop(name)
             self.fields['subject'].required = True
             self.fields['experience_years'].required = False
@@ -35,6 +38,8 @@ class CompanyRequestForm(forms.ModelForm):
             self.fields.pop('experience_years')
             self.fields['destination_country'].required = True
             self.fields['product_interest'].required = True
+            self.fields['quantity_tonnes'].required = True
+            self.fields['delivery_terms'].required = True
         self.fields['consent'].required = True
         self.fields['name'].widget.attrs.update({'autocomplete': 'name'})
         self.fields['email'].widget.attrs.update({'autocomplete': 'email', 'dir': 'ltr'})

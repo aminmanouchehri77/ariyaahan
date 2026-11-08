@@ -34,6 +34,9 @@ class ArticleAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     date_hierarchy = 'published_at'
 
+    def view_on_site(self, obj):
+        return f'{obj.get_absolute_url()}?preview=1'
+
     def save_model(self, request, obj, form, change):
         if obj.status == Article.Status.PUBLISHED and not obj.published_at:
             obj.published_at = timezone.now()
@@ -73,7 +76,8 @@ class CompanyRequestAdmin(admin.ModelAdmin):
     fieldsets = (
         ('درخواست', {
             'fields': ('public_id', 'profile', 'kind', 'status', 'name', 'mobile', 'email', 'company_name',
-                       'subject', 'destination_country', 'product_interest', 'experience_years', 'message', 'consent'),
+                       'subject', 'destination_country', 'product_interest', 'quantity_tonnes', 'delivery_terms',
+                       'experience_years', 'message', 'consent'),
         }),
         ('پیگیری داخلی', {'fields': ('assigned_to', 'admin_note', 'source_path', 'created_at', 'updated_at')}),
     )

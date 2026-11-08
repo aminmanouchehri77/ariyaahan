@@ -27,5 +27,10 @@ urlpatterns = [
             'market_news': MarketNewsSitemap,
         },
     }, name='sitemap'),
+    # Paths from the proposal's site map, kept as permanent aliases.
+    path('market/offers/', RedirectView.as_view(pattern_name='marketplace:sell', permanent=True, query_string=True)),
+    path('market/requests/', RedirectView.as_view(pattern_name='marketplace:buy', permanent=True, query_string=True)),
+    path('price-alerts/', RedirectView.as_view(pattern_name='accounts:price_alerts', permanent=True)),
+    path('tools/shipping/', RedirectView.as_view(pattern_name='core:shipping_calculator', permanent=True)),
     path('service-worker.js', views.service_worker, name='service_worker'),
 ]

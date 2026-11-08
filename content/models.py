@@ -1,7 +1,8 @@
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import RegexValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -323,6 +324,22 @@ class CompanyRequest(models.Model):
     destination_country = models.CharField('کشور مقصد', max_length=100, blank=True)
     product_interest = models.CharField('محصول یا نیاز', max_length=240, blank=True)
     experience_years = models.PositiveSmallIntegerField('سابقهٔ کاری (سال)', null=True, blank=True)
+    quantity_tonnes = models.DecimalField(
+        'مقدار تقریبی (تن)', max_digits=12, decimal_places=3, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.001'))],
+    )
+    delivery_terms = models.CharField(
+        'شرایط تحویل', max_length=8, blank=True,
+        choices=[
+            ('EXW', 'EXW — تحویل درب کارخانه'),
+            ('FCA', 'FCA — تحویل به حمل‌کننده'),
+            ('FOB', 'FOB — تحویل روی عرشهٔ کشتی'),
+            ('CFR', 'CFR — هزینه و کرایه تا بندر مقصد'),
+            ('CIF', 'CIF — هزینه، بیمه و کرایه تا بندر مقصد'),
+            ('DAP', 'DAP — تحویل در مقصد'),
+            ('OTHER', 'سایر / نیاز به مشاوره'),
+        ],
+    )
     message = models.TextField('شرح درخواست', max_length=5000)
     consent = models.BooleanField('رضایت تماس برای پیگیری', default=False)
     source_path = models.CharField('صفحهٔ مبدأ', max_length=255, blank=True)

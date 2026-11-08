@@ -10,32 +10,44 @@ from .models import ShippingRate
 RIAL_FACTORS = {'IRR': Decimal('1'), 'IRT': Decimal('10')}
 
 
+def _current():
+    return ShippingRate.objects.filter(is_active=True, valid_until__gt=timezone.now())
+
+
 def active_routes():
-    now = timezone.now()
-    rates = ShippingRate.objects.filter(is_active=True, valid_until__gt=now)
+    rates = _current()
     origins = sorted(set(rates.values_list('origin_city', flat=True)))
     destinations = sorted(set(rates.values_list('destination_city', flat=True)))
     return origins, destinations
 
 
-def find_rate(origin, destination, weight_tonnes):
-    return ShippingRate.objects.filter(
+def active_methods():
+    """Delivery methods that have at least one specific current rate."""
+    used = set(_current().exclude(method='').values_list('method', flat=True))
+    return [(value, label) for value, label in ShippingRate.Method.choices if value in used]
+
+
+def find_rate(origin, destination, weight_tonnes, method=''):
+    rates = _current().filter(
         origin_city=origin,
         destination_city=destination,
-        is_active=True,
-        valid_until__gt=timezone.now(),
         minimum_tonnes__lte=weight_tonnes,
-    ).filter(
-        Q(maximum_tonnes__isnull=True) | Q(maximum_tonnes__gte=weight_tonnes)
-    ).order_by('-minimum_tonnes', 'per_tonne').first()
+    ).filter(Q(maximum_tonnes__isnull=True) | Q(maximum_tonnes__gte=weight_tonnes))
+    if method:
+        # A rate for exactly this method wins over a method-agnostic one.
+        exact = rates.filter(method=method).order_by('-minimum_tonnes', 'per_tonne').first()
+        if exact:
+            return exact
+        rates = rates.filter(method='')
+    return rates.order_by('-minimum_tonnes', 'per_tonne').first()
 
 
-def estimate(origin, destination, weight_tonnes):
-    rate = find_rate(origin, destination, weight_tonnes)
+def estimate(origin, destination, weight_tonnes, method=''):
+    rate = find_rate(origin, destination, weight_tonnes, method)
     if rate is None:
         return None
     amount = (rate.base_fee + rate.per_tonne * weight_tonnes).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-    return {'rate': rate, 'amount': amount, 'currency': rate.currency, 'weight_tonnes': weight_tonnes}
+    return {'rate': rate, 'amount': amount, 'currency': rate.currency, 'weight_tonnes': weight_tonnes, 'method': method}
 
 
 def combined_total(goods_totals, shipping):

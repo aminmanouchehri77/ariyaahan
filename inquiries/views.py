@@ -1,5 +1,6 @@
 import re
 
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -128,7 +129,14 @@ def contact(request):
 
 @never_cache
 def inquiry_status(request, public_id):
-    inquiry = get_object_or_404(Inquiry, public_id=public_id)
+    inquiry = Inquiry.objects.filter(public_id=public_id).first()
+    if inquiry is None:
+        # Company-form links were once issued under this same path.
+        from content.models import CompanyRequest
+
+        if CompanyRequest.objects.filter(public_id=public_id).exists():
+            return redirect('content:company_request_status', public_id=public_id, permanent=True)
+        raise Http404
     response = render(request, 'inquiries/status.html', {'inquiry': inquiry})
     response['Cache-Control'] = 'private, no-store'
     response['X-Robots-Tag'] = 'noindex, nofollow'

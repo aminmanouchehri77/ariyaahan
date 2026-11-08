@@ -83,7 +83,7 @@ def _clear_checkout_quote(request):
 def cart_detail(request):
     from decimal import Decimal
 
-    from pricing.shipping import active_routes, combined_total, estimate
+    from pricing.shipping import active_methods, active_routes, combined_total, estimate
 
     from .projects import weight_kg
 
@@ -91,6 +91,10 @@ def cart_detail(request):
     origins, destinations = active_routes()
     origin = request.GET.get('origin', '')[:100]
     destination = request.GET.get('destination', '')[:100]
+    methods = active_methods()
+    method = request.GET.get('method', '')[:12]
+    if method not in {value for value, _ in methods}:
+        method = ''
     total_weight = Decimal('0')
     weight_complete = True
     for line in context['cart_lines']:
@@ -103,12 +107,14 @@ def cart_detail(request):
     weight_tonnes = (total_weight / Decimal('1000')).quantize(Decimal('0.001'))
     shipping = None
     if origin in origins and destination in destinations and weight_tonnes > 0:
-        shipping = estimate(origin, destination, weight_tonnes)
+        shipping = estimate(origin, destination, weight_tonnes, method)
     context.update({
         'shipping_origins': origins,
         'shipping_destinations': destinations,
         'shipping_origin': origin,
         'shipping_destination': destination,
+        'shipping_methods': methods,
+        'shipping_method': method,
         'shipping_estimate': shipping,
         'shipping_requested': bool(origin and destination),
         'cart_weight_tonnes': weight_tonnes,
