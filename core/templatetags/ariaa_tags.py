@@ -28,7 +28,7 @@ def money(value, currency='IRR'):
         amount = int(Decimal(value))
     except (InvalidOperation, TypeError, ValueError):
         return 'استعلام'
-    formatted = f'{amount:,}'.replace(',', '٬').translate(PERSIAN_DIGITS)
+    formatted = f'{amount:,}'.translate(PERSIAN_DIGITS)
     return f'{formatted} {CURRENCY_LABELS.get(currency, currency)}'
 
 

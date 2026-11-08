@@ -72,7 +72,7 @@
     const step = (now) => {
       const progress = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
-      element.textContent = digits(Math.round(target * eased).toLocaleString('en-US').replace(/,/g, '٬'));
+      element.textContent = digits(Math.round(target * eased).toLocaleString('en-US'));
       if (progress < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);

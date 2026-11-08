@@ -157,7 +157,7 @@ python manage.py process_price_events --limit 100
 
 ## ظاهر سایت و فایل‌های فرانت‌اند
 
-- استایل: `static/core/css/site.css` (توکن‌های رنگ در `:root`). فونت Vazirmatn محلی در `static/core/fonts/`، آیکون‌ها در `static/core/brand/icons.svg` و لوگو در `static/core/brand/emblem.svg` است؛ برای جایگزینی لوگو همین فایل را عوض کنید.
+- استایل: `static/core/css/site.css` (توکن‌های رنگ در `:root`). فونت استداد (Estedad، مجوز آزاد OFL) به‌صورت محلی در `static/core/fonts/` (برای فونت تجاری فقط `@font-face` ابتدای `site.css` و متغیر `--font-text` را عوض کنید)، آیکون‌ها در `static/core/brand/icons.svg` و لوگو در `static/core/brand/emblem.svg` است؛ برای جایگزینی لوگو همین فایل را عوض کنید.
 - هدر سه‌بعدی و تصاویر محصول از کد `frontend/src/` ساخته می‌شوند. برای بازسازی bundle:
 
 ```bash
