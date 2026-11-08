@@ -4,7 +4,9 @@
 // sees matters).
 import { OBB } from 'three/examples/jsm/math/OBB.js';
 import { THREE } from '../src/steel.js';
-import { CLEARANCE, FLOAT_AMPLITUDE, SCREEN_GAP, TILT_AMPLITUDE } from '../src/hero-layout.js';
+import {
+  CAMERA_Y, CAMERA_Z, CHECK_VIEWPORTS, CLEARANCE, FLOAT_AMPLITUDE, SCREEN_GAP, TILT_AMPLITUDE, heroFraming,
+} from '../src/hero-layout.js';
 
 export const STATES = [];
 for (const dy of [-FLOAT_AMPLITUDE, FLOAT_AMPLITUDE]) for (const dz of [-TILT_AMPLITUDE, TILT_AMPLITUDE]) STATES.push([dy, dz]);
@@ -28,19 +30,31 @@ export function obbFor(piece, dy = 0, dz = 0) {
   return new OBB().fromBox3(box(piece).clone().expandByScalar(CLEARANCE)).applyMatrix4(matrix(piece, dy, dz));
 }
 
-// Cameras matching how the hero frames the cluster: centred (phones) and
-// with the cluster on the left of a wide screen (seen from its right).
-export function cameraFor(pieces, shift = 0) {
-  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  for (const p of pieces) p.pos.forEach((v, i) => { min[i] = Math.min(min[i], v); max[i] = Math.max(max[i], v); });
-  const c = min.map((v, i) => (v + max[i]) / 2);
-  const camera = new THREE.PerspectiveCamera(34, 1600 / 860, 0.1, 80);
-  camera.position.set(c[0] + shift, c[1] + 0.3, c[2] + 16);
-  camera.lookAt(c[0] + shift, c[1], c[2]);
+// Cameras that see the layout exactly as the live hero does at each checked
+// viewport: same box, same framing maths, expressed in layout coordinates.
+function layoutBox(pieces) {
+  const group = new THREE.Group();
+  for (const p of pieces) {
+    const mesh = new THREE.Mesh(p.geometry);
+    mesh.position.set(...p.pos);
+    mesh.rotation.set(...p.rot);
+    group.add(mesh);
+  }
+  return new THREE.Box3().setFromObject(group);
+}
+export function cameraFor(pieces, [width, height]) {
+  const box = layoutBox(pieces);
+  const f = heroFraming(box.getSize(new THREE.Vector3()), box.getCenter(new THREE.Vector3()), width, height);
+  const camera = new THREE.PerspectiveCamera(f.fov, f.aspect, 0.01, 200);
+  camera.position.set(
+    (0 - f.position[0]) / f.scale,
+    (CAMERA_Y - f.position[1]) / f.scale,
+    (CAMERA_Z - f.position[2]) / f.scale,
+  );
   camera.updateMatrixWorld();
   return camera;
 }
-export const camerasFor = (pieces) => [cameraFor(pieces, 0), cameraFor(pieces, 4.5)];
+export const camerasFor = (pieces) => CHECK_VIEWPORTS.map((viewport) => cameraFor(pieces, viewport));
 
 function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
 function hull(points) {
@@ -80,7 +94,7 @@ function hull3dCandidates(points) {
 }
 const hullMemo = new Map();
 export function screenHull(piece, camera, dy = 0, dz = 0) {
-  const key = `${piece.key}|${piece.pos}|${dy}|${dz}|${camera.position.toArray()}`;
+  const key = `${piece.key}|${piece.pos}|${dy}|${dz}|${camera.position.toArray()}|${camera.fov}|${camera.aspect}`;
   if (hullMemo.has(key)) return hullMemo.get(key);
   if (hullMemo.size > 50000) hullMemo.clear();
   const m = matrix(piece, dy, dz);

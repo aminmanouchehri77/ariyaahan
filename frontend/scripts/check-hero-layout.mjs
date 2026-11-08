@@ -9,4 +9,4 @@ if (found.length) {
   console.error('Overlapping pieces:\n  ' + found.map(([a, b, kind]) => `${a.key} × ${b.key} (${kind})`).join('\n  '));
   process.exit(1);
 }
-console.log(`OK — ${pieces.length} pieces, no 3D or on-screen overlap across ${STATES.length} drift states.`);
+console.log(`OK — ${pieces.length} pieces, no on-screen overlap across ${STATES.length} drift states and 4 viewports.`);

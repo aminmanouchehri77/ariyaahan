@@ -2,7 +2,9 @@
 // with rising sparks and gentle pointer parallax. Progressive enhancement:
 // the page shows a pre-rendered poster until this module takes over.
 import { THREE, MATERIALS, createRenderer, createStudio } from './steel.js';
-import { CLUSTER_FLOAT, FLOAT_AMPLITUDE, TILT_AMPLITUDE, heroLayout } from './hero-layout.js';
+import {
+  CAMERA_Y, CAMERA_Z, CLUSTER_FLOAT, FLOAT_AMPLITUDE, TILT_AMPLITUDE, heroFraming, heroLayout,
+} from './hero-layout.js';
 
 function sparkTexture() {
   const canvas = document.createElement('canvas');
@@ -32,8 +34,8 @@ export function mountHero(container, { onReady } = {}) {
     if (light.isDirectionalLight) light.intensity = 0.9;
   });
 
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 60);
-  camera.position.set(0, 0.3, 9);
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.05, 60);
+  camera.position.set(0, CAMERA_Y, CAMERA_Z);
 
   const glow = new THREE.PointLight(0xff5a14, 40, 12, 1.4);
   glow.position.set(-1.5, -1.8, 1.5);
@@ -48,9 +50,8 @@ export function mountHero(container, { onReady } = {}) {
     const mesh = new THREE.Mesh(piece.geometry, materials[piece.material] || (materials[piece.material] = MATERIALS[piece.material]()));
     mesh.position.set(...piece.pos);
     mesh.rotation.set(...piece.rot);
-    // Rebars drift together as one bundle so their spacing never changes.
-    const phase = piece.group === 'rebars' ? 3.1 : index * 0.9;
-    const speed = piece.group === 'rebars' ? 0.5 : 0.42 + (index % 3) * 0.09;
+    const phase = index * 0.9;
+    const speed = 0.42 + (index % 3) * 0.09;
     mesh.userData = { base: mesh.position.clone(), rot: mesh.rotation.clone(), phase, speed };
     world.add(mesh);
     return mesh;
@@ -95,28 +96,12 @@ export function mountHero(container, { onReady } = {}) {
     const { width, height } = container.getBoundingClientRect();
     if (!width || !height) return;
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    // Keep the composition on the visual (left in RTL) side on wide screens,
-    // centred behind the content on narrow ones.
-    const wide = width > 900;
-    camera.fov = wide ? 34 : 44;
-    // Fit the bundle into its region of the hero: the left half on wide
-    // screens (text sits on the right in RTL), the upper area on phones.
-    const distance = camera.position.z;
-    const visibleH = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const visibleW = visibleH * camera.aspect;
-    const layoutSize = layoutBox.getSize(new THREE.Vector3());
-    const medium = wide && width < 1240;
-    let region = { w: visibleW * 0.92, h: visibleH * 0.46, x: 0, y: visibleH * 0.2 };
-    if (wide) region = { w: visibleW * 0.4, h: visibleH * 0.8, x: -visibleW * 0.24, y: 0 };
-    if (medium) region = { w: visibleW * 0.3, h: visibleH * 0.62, x: -visibleW * 0.31, y: visibleH * 0.04 };
-    const scale = Math.min(region.w / layoutSize.x, region.h / layoutSize.y);
-    world.scale.setScalar(scale);
-    world.position.set(
-      region.x - layoutCenter.x * scale,
-      region.y - layoutCenter.y * scale,
-      -layoutCenter.z * scale,
-    );
+    const framing = heroFraming(layoutBox.getSize(new THREE.Vector3()), layoutCenter, width, height);
+    camera.aspect = framing.aspect;
+    camera.fov = framing.fov;
+    world.scale.setScalar(framing.scale);
+    world.position.set(...framing.position);
+    const scale = framing.scale;
     world.userData.baseY = world.position.y;
     world.userData.scale = scale;
     camera.updateProjectionMatrix();
