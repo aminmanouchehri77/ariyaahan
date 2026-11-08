@@ -52,6 +52,7 @@ class PreInvoice(models.Model):
         CANCELLED = 'cancelled', 'لغو شده'
 
     public_id = models.UUIDField('شناسهٔ امن', default=uuid.uuid4, unique=True, editable=False)
+    submission_key = models.UUIDField('کلید یکتای ثبت', null=True, blank=True, unique=True, editable=False)
     customer = models.ForeignKey(
         'accounts.CustomerProfile', verbose_name='حساب مشتری', related_name='preinvoices',
         null=True, blank=True, on_delete=models.SET_NULL,

@@ -16,7 +16,7 @@ from catalog.models import Category, Manufacturer, Product, ProductVariant
 from content.models import Article, MarketNews
 from pricing.selectors import attach_sparklines, latest_stock_observations, mark_price_state, mark_stock_state, with_latest_price
 from pricing.models import PriceObservation, ShippingRate
-from .models import RedirectRule
+from .models import RedirectRule, is_safe_internal_path
 from .search import did_you_mean, match_q, normalize_fa
 from .seo import canonical_url
 
@@ -90,7 +90,7 @@ def market_pulse(categories, days=7):
 
 
 def search(request):
-    query = request.GET.get('q', '').strip()[:100]
+    query = request.GET.get('q', '').replace('\x00', '').strip()[:100]
     products = []
     suggestion = ''
     categories = []
@@ -127,7 +127,7 @@ def search(request):
 
 @require_GET
 def search_suggestions(request):
-    query = request.GET.get('q', '').strip()[:80]
+    query = request.GET.get('q', '').replace('\x00', '').strip()[:80]
     suggestions = []
     if len(normalize_fa(query)) >= 2:
         condition = match_q(query, ('name', 'summary', 'category__name'))
@@ -180,12 +180,18 @@ def offline(request):
     return render(request, 'core/offline.html')
 
 
+ROBOTS_DISALLOW = (
+    '/admin/', '/account/', '/cart/', '/checkout/', '/payment/', '/preinvoice/',
+    '/compare/', '/search/', '/push/', '/projects/shared/', '/company/requests/', '/requests/',
+)
+
+
 @require_GET
 def robots_txt(request):
     sitemap_url = canonical_url(request, reverse('core:sitemap'))
     body = '\n'.join((
         'User-agent: *',
-        'Disallow: /admin/',
+        *(f'Disallow: {path}' for path in ROBOTS_DISALLOW),
         f'Sitemap: {sitemap_url}',
         '',
     ))
@@ -303,6 +309,10 @@ def legacy_route(request, old_path):
         response = HttpResponseGone()
         response['X-Robots-Tag'] = 'noindex, nofollow'
         return response
+    if not is_safe_internal_path(rule.destination):
+        # Rules written around model validation (bulk import, raw SQL) must
+        # never turn this catch-all route into an open redirect.
+        return page_not_found(request, None)
     response = HttpResponseRedirect(rule.destination)
     response.status_code = rule.status_code
     response['Cache-Control'] = 'public, max-age=3600'

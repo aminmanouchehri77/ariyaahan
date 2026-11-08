@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django import forms
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 from catalog.models import ProductVariant
 from core.phone import normalize_iran_mobile
@@ -51,8 +52,8 @@ class MarketplaceListingForm(forms.ModelForm):
         ).select_related('product', 'manufacturer').order_by('product__name', 'sort_order', 'name')
         self.fields['product_label'].required = False
         self.fields['product_label'].label = 'نام کالا / مشخصات'
-        self.fields['quantity'].min_value = Decimal('0.001')
-        self.fields['quantity'].max_value = Decimal('1000000')
+        # Assigning min_value/max_value after construction adds no validators, so attach them explicitly.
+        self.fields['quantity'].validators += [MinValueValidator(Decimal('0.001')), MaxValueValidator(Decimal('1000000'))]
         self.fields['price_amount'].required = False
         self.fields['price_amount'].label = 'مبلغ برای هر واحد (اختیاری)'
         self.fields['city'].label = 'شهر / محل تحویل'

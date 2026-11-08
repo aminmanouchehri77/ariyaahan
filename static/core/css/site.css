@@ -1164,6 +1164,9 @@ ul, ol { padding-inline-start: 1.25em; }
 .socials a:hover { background: var(--molten); color: #fff; }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,.07); padding-block: 18px; font-size: .82rem; }
 .footer-bottom .container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.footer-credit { color: rgba(255,255,255,.6); }
+.footer-credit strong { color: var(--molten); font-weight: 700; }
+@media (max-width: 640px) { .footer-bottom .container { flex-direction: column; align-items: center; text-align: center; } }
 .install-app-button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: transparent; color: #fff; font-weight: 700; }
 .install-app-button:hover { border-color: var(--molten); }
 

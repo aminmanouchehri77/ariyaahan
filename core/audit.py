@@ -30,10 +30,12 @@ class AuditMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from .throttle import client_ip
+
         user = getattr(request, 'user', None)
         token = _current.set((
             user if user is not None and user.is_authenticated else None,
-            request.META.get('REMOTE_ADDR') or None,
+            client_ip(request) or None,
         ))
         try:
             return self.get_response(request)

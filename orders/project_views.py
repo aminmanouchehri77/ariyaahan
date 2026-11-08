@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -120,7 +122,11 @@ def project_add_item(request, variant_id):
         return redirect(variant.product.get_absolute_url())
     project_id = request.POST.get('project', '')
     if project_id and project_id != 'new':
-        project = get_object_or_404(ProjectList, public_id=project_id, profile=profile)
+        try:
+            project_uuid = uuid.UUID(project_id)
+        except ValueError:
+            raise Http404 from None
+        project = get_object_or_404(ProjectList, public_id=project_uuid, profile=profile)
     else:
         if profile.projects.count() >= MAX_PROJECTS:
             messages.error(request, 'حداکثر تعداد پروژه‌ها پر شده است.')

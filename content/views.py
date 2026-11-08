@@ -17,6 +17,7 @@ from .models import Article, ArticleComment, ArticleTag, CompanyPage, CompanyReq
 
 
 PAGE_SIZE = 12
+THROTTLE_MESSAGE = 'تعداد ارسال‌های شما در چند دقیقهٔ اخیر زیاد بوده است؛ کمی بعد دوباره تلاش کنید.'
 PAGE_DEFAULTS = {
     CompanyPage.Kind.ABOUT: ('دربارهٔ ما', 'اطلاعات معرفی و راه‌های شناخت شرکت آهن‌آلات آریا.'),
     CompanyPage.Kind.EXPORT: ('صادرات', 'برای بررسی امکان تأمین و ارسال برون‌مرزی درخواست خود را ثبت کنید.'),
@@ -89,10 +90,11 @@ def company_request(request, kind):
                 user=request.user, mobile=company_request_obj.mobile,
             ).first()
         company_request_obj.save()
-        return render(request, 'content/request_sent.html', {
+        # The response carries the private tracking link: keep it out of caches, indexes and referrers.
+        return _private(render(request, 'content/request_sent.html', {
             'request_record': company_request_obj,
             'title_text': title,
-        })
+        }))
     return render(request, 'content/request_form.html', {
         'form': form,
         'title_text': title,
@@ -101,13 +103,16 @@ def company_request(request, kind):
     })
 
 
-def company_request_status(request, public_id):
-    request_record = get_object_or_404(CompanyRequest, public_id=public_id)
-    response = render(request, 'content/request_status.html', {'request_record': request_record})
+def _private(response):
     response['Cache-Control'] = 'private, no-store'
     response['X-Robots-Tag'] = 'noindex, nofollow'
     response['Referrer-Policy'] = 'no-referrer'
     return response
+
+
+def company_request_status(request, public_id):
+    request_record = get_object_or_404(CompanyRequest, public_id=public_id)
+    return _private(render(request, 'content/request_status.html', {'request_record': request_record}))
 
 
 def article_list(request):
@@ -124,7 +129,9 @@ def article_list(request):
         'page_obj': page_obj,
         'articles': page_obj.object_list,
         'selected_tag': tag,
-        'tags': ArticleTag.objects.filter(articles__status=Article.Status.PUBLISHED).distinct(),
+        'tags': ArticleTag.objects.filter(
+            articles__status=Article.Status.PUBLISHED, articles__published_at__lte=timezone.now(),
+        ).distinct(),
         'breadcrumb_schema': breadcrumb_schema(request, [
             ('خانه', '/'), ('مجله', request.path),
         ]),
@@ -283,7 +290,9 @@ def product_question_submit(request, slug):
         messages.error(request, 'برای ثبت پرسش، حساب مشتری تأییدشده لازم است.')
         return redirect(product.get_absolute_url())
     form = ProductQuestionForm(request.POST)
-    if form.is_valid():
+    if not submission_allowed(request, 'product-question'):
+        messages.error(request, THROTTLE_MESSAGE)
+    elif form.is_valid():
         question = form.save(commit=False)
         question.product = product
         question.profile = profile
@@ -307,7 +316,9 @@ def product_review_submit(request, slug):
         messages.error(request, 'برای ثبت دیدگاه، حساب مشتری تأییدشده لازم است.')
         return redirect(product.get_absolute_url())
     form = ProductReviewForm(request.POST)
-    if form.is_valid():
+    if not submission_allowed(request, 'product-review'):
+        messages.error(request, THROTTLE_MESSAGE)
+    elif form.is_valid():
         review = form.save(commit=False)
         review.product = product
         review.profile = profile
@@ -337,7 +348,9 @@ def article_comment_submit(request, slug):
         messages.error(request, 'برای ثبت دیدگاه، حساب مشتری تأییدشده لازم است.')
         return redirect(article.get_absolute_url())
     form = ArticleCommentForm(request.POST)
-    if form.is_valid():
+    if not submission_allowed(request, 'article-comment'):
+        messages.error(request, THROTTLE_MESSAGE)
+    elif form.is_valid():
         comment = form.save(commit=False)
         comment.article = article
         comment.profile = profile

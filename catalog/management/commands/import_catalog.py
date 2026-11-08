@@ -2,8 +2,11 @@ import csv
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
+from django.core.validators import validate_slug
 
+from catalog.csv_import import check_file, clean_row, iter_rows
 from catalog.models import Category, Manufacturer, Product, ProductVariant
 
 
@@ -11,6 +14,19 @@ REQUIRED = {
     'category_slug', 'product_slug', 'product_name', 'variant_sku',
     'variant_name', 'unit',
 }
+MAX_LENGTHS = {
+    'product_slug': (Product, 'slug'),
+    'product_name': (Product, 'name'),
+    'variant_sku': (ProductVariant, 'sku'),
+    'variant_name': (ProductVariant, 'name'),
+    'size': (ProductVariant, 'size'),
+    'grade': (ProductVariant, 'grade'),
+    'standard': (ProductVariant, 'standard'),
+    'dimensions': (ProductVariant, 'dimensions'),
+    'manufacturer_slug': (Manufacturer, 'slug'),
+    'manufacturer_name': (Manufacturer, 'name'),
+}
+MAX_WEIGHT = Decimal('1000000000')
 
 
 class Command(BaseCommand):
@@ -21,8 +37,7 @@ class Command(BaseCommand):
         parser.add_argument('--commit', action='store_true', help='پس از اعتبارسنجی کامل، ردیف‌های جدید را ثبت کن.')
 
     def handle(self, *args, csv_path, commit=False, **options):
-        if not csv_path.is_file():
-            raise CommandError(f'فایل پیدا نشد: {csv_path}')
+        check_file(csv_path)
         try:
             with csv_path.open('r', encoding='utf-8-sig', newline='') as source:
                 reader = csv.DictReader(source)
@@ -96,9 +111,9 @@ class Command(BaseCommand):
         products = {}
         valid_units = set(ProductVariant.Unit.values)
 
-        for line_number, raw in enumerate(reader, start=2):
-            row = {key: (value or '').strip() for key, value in raw.items()}
+        for line_number, raw in iter_rows(reader):
             try:
+                row = clean_row(raw)
                 for key in REQUIRED:
                     if not row.get(key):
                         raise ValueError(f'{key} خالی است.')
@@ -107,6 +122,17 @@ class Command(BaseCommand):
                 if row['variant_sku'] in seen_skus:
                     raise ValueError(f'SKU تکراری در فایل: {row["variant_sku"]}')
                 seen_skus.add(row['variant_sku'])
+
+                for key in ('product_slug', 'manufacturer_slug'):
+                    if row.get(key):
+                        try:
+                            validate_slug(row[key])
+                        except ValidationError as error:
+                            raise ValueError(f'{key} باید فقط حروف لاتین، عدد، - یا _ داشته باشد.') from error
+                for key, (model, field) in MAX_LENGTHS.items():
+                    limit = model._meta.get_field(field).max_length
+                    if len(row.get(key, '')) > limit:
+                        raise ValueError(f'{key} بیش از {limit} نویسه است.')
 
                 category = Category.objects.get(slug=row['category_slug'])
                 if not category.is_active:
@@ -127,8 +153,11 @@ class Command(BaseCommand):
                 weight = None
                 if row.get('weight_per_unit_kg'):
                     weight = Decimal(row['weight_per_unit_kg'])
-                    if not weight.is_finite() or weight <= 0:
-                        raise ValueError('weight_per_unit_kg باید عدد مثبت باشد.')
+                    if (
+                        not weight.is_finite() or weight <= 0 or weight >= MAX_WEIGHT
+                        or weight != weight.quantize(Decimal('0.001'))
+                    ):
+                        raise ValueError('weight_per_unit_kg باید عدد مثبت (حداکثر سه رقم اعشار) باشد.')
 
                 records.append({
                     'line_number': line_number,

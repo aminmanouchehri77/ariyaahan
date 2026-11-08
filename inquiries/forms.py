@@ -1,8 +1,12 @@
 from django import forms
+from django.core.validators import MaxLengthValidator
 from catalog.models import ProductVariant
 from core.phone import normalize_iran_mobile
 
 from .models import Inquiry
+
+MESSAGE_MAX_LENGTH = 3000
+
 
 class ActiveVariantField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
@@ -22,6 +26,7 @@ class InquiryForm(forms.ModelForm):
         empty_label='یک گونهٔ محصول انتخاب کنید',
         required=False,
     )
+    website = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Inquiry
@@ -51,6 +56,8 @@ class InquiryForm(forms.ModelForm):
                 product__category__is_active=True,
             ).select_related('product', 'manufacturer').order_by('product__name', 'sort_order', 'name')
             self.fields['product_variant'].required = True
+        self.fields['message'].validators.append(MaxLengthValidator(MESSAGE_MAX_LENGTH))
+        self.fields['message'].widget.attrs['maxlength'] = MESSAGE_MAX_LENGTH
         self.fields['customer_name'].widget.attrs.update({'autocomplete': 'name'})
         self.fields['mobile'].widget.attrs.update({
             'autocomplete': 'tel',
@@ -66,6 +73,8 @@ class InquiryForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get('website'):
+            raise forms.ValidationError('درخواست ثبت نشد.')
         variant = cleaned.get('product_variant')
         if variant and not cleaned.get('quantity_unit'):
             cleaned['quantity_unit'] = variant.get_unit_display()

@@ -1,13 +1,24 @@
 import re
+from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxLengthValidator
 from django.utils import timezone
 
 from catalog.models import ProductVariant
-from core.phone import normalize_iran_mobile
+from core.phone import PHONE_DIGITS, normalize_iran_mobile
 from pricing.models import PriceObservation
 from .models import CustomerAddress, CustomerProfile, PriceAlert
+
+
+def _clean_iran_mobile(value):
+    mobile = normalize_iran_mobile(value)
+    # core.phone only maps Persian/Arabic-Indic digits; reject any other Unicode digit
+    # (e.g. Devanagari, fullwidth) that ``\d`` would otherwise let through.
+    if not mobile.isascii():
+        raise ValidationError('شمارهٔ همراه معتبر وارد کنید؛ مانند ۰۹۱۲۳۴۵۶۷۸۹.')
+    return mobile
 
 
 class MobileLoginForm(forms.Form):
@@ -27,7 +38,7 @@ class MobileLoginForm(forms.Form):
 
     def clean_mobile(self):
         try:
-            return normalize_iran_mobile(self.cleaned_data['mobile'])
+            return _clean_iran_mobile(self.cleaned_data['mobile'])
         except ValidationError as error:
             raise forms.ValidationError(error.messages) from error
 
@@ -61,7 +72,7 @@ class OTPVerificationForm(forms.Form):
         code = self.cleaned_data['code'].translate(
             str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
         ).strip()
-        if not re.fullmatch(r'\d{6}', code):
+        if not re.fullmatch(r'[0-9]{6}', code):
             raise forms.ValidationError('کد باید دقیقاً ۶ رقم باشد.')
         return code
 
@@ -96,13 +107,26 @@ class CustomerAddressForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['mobile'].widget.attrs.update({'inputmode': 'tel', 'autocomplete': 'tel', 'dir': 'ltr'})
+        # Accept +98 / spaced input; the cleaned value is normalised to 11 digits.
+        mobile_field = self.fields['mobile']
+        mobile_field.max_length = 32
+        mobile_field.validators = [
+            v for v in mobile_field.validators if not isinstance(v, MaxLengthValidator)
+        ] + [MaxLengthValidator(32)]
+        mobile_field.widget.attrs['maxlength'] = 32
+        mobile_field.widget.attrs.update({'inputmode': 'tel', 'autocomplete': 'tel', 'dir': 'ltr'})
         self.fields['postal_code'].widget.attrs.update({'inputmode': 'numeric', 'dir': 'ltr', 'maxlength': 10})
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
 
     def clean_mobile(self):
-        return normalize_iran_mobile(self.cleaned_data['mobile'])
+        return _clean_iran_mobile(self.cleaned_data['mobile'])
+
+    def clean_postal_code(self):
+        postal_code = re.sub(r'[\s-]', '', self.cleaned_data['postal_code'].translate(PHONE_DIGITS))
+        if postal_code and not re.fullmatch(r'[0-9]{10}', postal_code):
+            raise ValidationError('کدپستی باید ۱۰ رقم باشد.')
+        return postal_code
 
 
 class ActiveVariantField(forms.ModelChoiceField):
@@ -121,7 +145,7 @@ class PriceAlertForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={'min': '1', 'step': '1', 'inputmode': 'numeric'}),
     )
     percent_change = forms.DecimalField(
-        label='درصد تغییر از قیمت مبنا', required=False, min_value='0.01', max_value='100',
+        label='درصد تغییر از قیمت مبنا', required=False, min_value=Decimal('0.01'), max_value=Decimal('100'),
         max_digits=5, decimal_places=2,
         widget=forms.NumberInput(attrs={'min': '0.01', 'max': '100', 'step': '0.01', 'inputmode': 'decimal'}),
     )

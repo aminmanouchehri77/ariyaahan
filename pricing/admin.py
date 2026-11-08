@@ -8,7 +8,7 @@ from .models import (
 )
 
 
-@admin.action(description='تأیید قیمت‌های انتخاب‌شده')
+@admin.action(description='تأیید قیمت‌های انتخاب‌شده', permissions=('change',))
 def approve_prices(modeladmin, request, queryset):
     changed = 0
     for observation in queryset.filter(status=PriceObservation.Status.PENDING):
@@ -20,12 +20,15 @@ def approve_prices(modeladmin, request, queryset):
     modeladmin.message_user(request, f'{changed} ثبت قیمت تأیید شد.')
 
 
-@admin.action(description='رد قیمت‌های انتخاب‌شده')
+@admin.action(description='رد قیمت‌های انتخاب‌شده', permissions=('change',))
 def reject_prices(modeladmin, request, queryset):
     changed = 0
     for observation in queryset.filter(status=PriceObservation.Status.PENDING):
-        observation.reject(request.user, 'رد از پنل مدیریت')
-        changed += 1
+        try:
+            observation.reject(request.user, 'رد از پنل مدیریت')
+            changed += 1
+        except ValidationError as error:
+            modeladmin.message_user(request, str(error), level=messages.ERROR)
     modeladmin.message_user(request, f'{changed} ثبت قیمت رد شد.')
 
 
@@ -75,7 +78,7 @@ class PriceReviewEventAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.action(description='بازگرداندن کارهای ناموفق به صف پردازش')
+@admin.action(description='بازگرداندن کارهای ناموفق به صف پردازش', permissions=('change',))
 def retry_price_tasks(modeladmin, request, queryset):
     retried = queryset.filter(status=PriceObservationTask.Status.FAILED).update(
         status=PriceObservationTask.Status.PENDING,
@@ -110,21 +113,27 @@ class InventoryLocationAdmin(admin.ModelAdmin):
     search_fields = ('name', 'city', 'address')
 
 
-@admin.action(description='تأیید موجودی‌های انتخاب‌شده')
+@admin.action(description='تأیید موجودی‌های انتخاب‌شده', permissions=('change',))
 def approve_stock(modeladmin, request, queryset):
     changed = 0
     for observation in queryset.filter(status=StockObservation.Status.PENDING):
-        observation.approve(request.user)
-        changed += 1
+        try:
+            observation.approve(request.user)
+            changed += 1
+        except ValidationError as error:
+            modeladmin.message_user(request, str(error), level=messages.ERROR)
     modeladmin.message_user(request, f'{changed} ثبت موجودی تأیید شد.')
 
 
-@admin.action(description='رد موجودی‌های انتخاب‌شده')
+@admin.action(description='رد موجودی‌های انتخاب‌شده', permissions=('change',))
 def reject_stock(modeladmin, request, queryset):
     changed = 0
     for observation in queryset.filter(status=StockObservation.Status.PENDING):
-        observation.reject(request.user)
-        changed += 1
+        try:
+            observation.reject(request.user)
+            changed += 1
+        except ValidationError as error:
+            modeladmin.message_user(request, str(error), level=messages.ERROR)
     modeladmin.message_user(request, f'{changed} ثبت موجودی رد شد.')
 
 

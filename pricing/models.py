@@ -113,6 +113,8 @@ class PriceObservation(models.Model):
             pk=self.variant_id,
         )
         observation = type(self).objects.select_for_update().get(pk=self.pk)
+        if observation.status == self.Status.REJECTED:
+            raise ValidationError('ثبت قیمت ردشده را نمی‌توان تأیید کرد؛ ثبت تازه ایجاد کنید.')
         observation.status = self.Status.APPROVED
         observation.approved_by = actor
         observation.approved_at = timezone.now()
@@ -124,6 +126,8 @@ class PriceObservation(models.Model):
     @transaction.atomic
     def reject(self, actor, note=''):
         observation = type(self).objects.select_for_update().get(pk=self.pk)
+        if observation.status != self.Status.PENDING:
+            raise ValidationError('فقط ثبت قیمت در انتظار تأیید قابل رد است.')
         observation.status = self.Status.REJECTED
         observation.approved_by = actor
         observation.approved_at = timezone.now()

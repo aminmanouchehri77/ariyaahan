@@ -116,9 +116,13 @@ def _decimal_or_none(value):
     if value in (None, ''):
         return None
     try:
-        return Decimal(str(value)).quantize(Decimal('1'))
+        amount = Decimal(str(value))
     except Exception:
         return None
+    # Rial amounts are integers; never round a fractional amount into a match.
+    if not amount.is_finite() or amount != amount.to_integral_value():
+        return None
+    return amount.quantize(Decimal('1'))
 
 
 class SEPClient:

@@ -56,8 +56,33 @@ if not DEBUG:
 
     normalized_hosts = {host.lower().rstrip('.') for host in ALLOWED_HOSTS}
     local_hosts = {'localhost', '127.0.0.1', '[::1]', '::1'}
-    if not normalized_hosts or '*' in normalized_hosts or normalized_hosts <= local_hosts:
+    if (
+        not normalized_hosts or normalized_hosts <= local_hosts
+        or any(host in {'*', '.'} or host.startswith('*') for host in normalized_hosts)
+    ):
         raise RuntimeError('Set explicit production ALLOWED_HOSTS; wildcard and localhost-only values are not accepted.')
+else:
+    # DEBUG exposes tracebacks and settings; refuse to serve real public hosts
+    # with it unless explicitly overridden for a throwaway staging box.
+    def _is_development_host(host):
+        import ipaddress
+
+        host = host.lower().rstrip('.').strip('[]')
+        if host in {'localhost', 'testserver'} or host.endswith(('.localhost', '.local', '.test', '.internal')):
+            return True
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            return False
+        return address.is_loopback or address.is_private or address.is_link_local
+
+    public_debug_hosts = [host for host in ALLOWED_HOSTS if not _is_development_host(host)]
+    allow_public_debug = os.getenv('DEBUG_ALLOW_PUBLIC_HOSTS', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+    if public_debug_hosts and not allow_public_debug:
+        raise RuntimeError(
+            'DEBUG=1 is only allowed for local/private hosts; refusing ALLOWED_HOSTS: '
+            + ', '.join(public_debug_hosts)
+        )
 
 
 # Application definition
@@ -82,6 +107,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.csp.ContentSecurityPolicyMiddleware',
+    'core.security.PermissionsPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -314,15 +341,70 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
+    origin.strip().rstrip('/')
     for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+if PUBLIC_SITE_URL and PUBLIC_SITE_URL not in CSRF_TRUSTED_ORIGINS:
+    # Behind a TLS-terminating proxy the canonical HTTPS origin must be trusted
+    # for the Origin check on POST requests.
+    CSRF_TRUSTED_ORIGINS.append(PUBLIC_SITE_URL)
+for trusted_origin in CSRF_TRUSTED_ORIGINS:
+    trusted_parts = urlsplit(trusted_origin)
+    if (
+        trusted_parts.scheme not in {'http', 'https'}
+        or not trusted_parts.netloc
+        or trusted_parts.netloc.lstrip('*.') in {'', 'com', 'ir', 'net', 'org'}
+        or trusted_parts.path or trusted_parts.query or trusted_parts.fragment
+        or (not DEBUG and trusted_parts.scheme != 'https')
+    ):
+        raise RuntimeError(f'Invalid CSRF_TRUSTED_ORIGINS entry: {trusted_origin!r} (production requires https://host).')
+
+# Client IP resolution (rate limits, audit log). X-Forwarded-For is ignored
+# unless the number of trusted reverse proxies in front of Django is declared.
+TRUSTED_PROXY_COUNT = max(0, int(os.getenv('TRUSTED_PROXY_COUNT', '0')))
+if TRUSTED_PROXY_COUNT and os.getenv('SECURE_PROXY_SSL_HEADER', '1').strip().lower() in {'1', 'true', 'yes', 'on'}:
+    # Only safe when the proxy overwrites this header on every request.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+# The CSRF cookie stays readable by site.js (it sends X-CSRFToken on fetch).
 CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+# Content-Security-Policy (Django's built-in middleware). Inline scripts and
+# event handlers still exist in templates, so 'unsafe-inline' is kept for
+# script-src until they move to nonces; the policy still blocks third-party
+# scripts, plugins, <base> hijacking, framing and off-site form posts.
+from django.utils.csp import CSP  # noqa: E402
+
+_sep_form_origin = '{0.scheme}://{0.netloc}'.format(urlsplit(SEP_PAYMENT_URL)) if SEP_PAYMENT_URL.startswith('https://') else None
+SECURE_CSP = {
+    'default-src': [CSP.SELF],
+    'script-src': [CSP.SELF, CSP.UNSAFE_INLINE],
+    'style-src': [CSP.SELF, CSP.UNSAFE_INLINE],
+    'img-src': [CSP.SELF, 'data:', 'blob:', 'https:'],
+    'font-src': [CSP.SELF, 'data:'],
+    'connect-src': [CSP.SELF, 'data:', 'blob:'],
+    'media-src': [CSP.SELF, 'https:'],
+    'worker-src': [CSP.SELF],
+    'manifest-src': [CSP.SELF],
+    'frame-src': [CSP.NONE],
+    'object-src': [CSP.NONE],
+    'base-uri': [CSP.SELF],
+    'form-action': [CSP.SELF] + ([_sep_form_origin] if _sep_form_origin else []),
+    'frame-ancestors': [CSP.NONE],
+}
+if not DEBUG:
+    SECURE_CSP['upgrade-insecure-requests'] = True
+PERMISSIONS_POLICY = (
+    'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), '
+    'payment=(), usb=(), browsing-topics=(), clipboard-write=(self), fullscreen=(self)'
+)
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True

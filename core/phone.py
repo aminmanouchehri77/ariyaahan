@@ -17,6 +17,6 @@ def normalize_iran_mobile(value):
         mobile = '0' + mobile[2:]
     elif mobile.startswith('9') and len(mobile) == 10:
         mobile = '0' + mobile
-    if not re.fullmatch(r'09\d{9}', mobile):
+    if not re.fullmatch(r'09[0-9]{9}', mobile):
         raise ValidationError('شمارهٔ همراه معتبر وارد کنید؛ مانند ۰۹۱۲۳۴۵۶۷۸۹.')
     return mobile

@@ -140,6 +140,8 @@ def create_payment_attempt(order_id):
 
 def start_sep_payment(order_id, *, callback_url, cell_number='', client=None):
     """Create an attempt and obtain a SEP token. Returns (payment, form_action, fields)."""
+    if not str(callback_url).startswith('https://'):
+        raise PaymentUnavailable('The bank callback address must use HTTPS.')
     payment = create_payment_attempt(order_id)
     try:
         client = client or SEPClient()
@@ -249,8 +251,11 @@ def verify_payment(payment_id, *, client=None):
             )
             return _mark(payment, status, reason=result.message, code=result.result_code)
 
-    if result.original_amount is not None and result.original_amount != payment.amount_rial:
+    # The verified amount is mandatory: a missing or different amount is never applied.
+    if result.original_amount is None or result.original_amount != payment.amount_rial:
         return _reverse_or_review(payment_id, client, 'Verified amount does not match the order amount.')
+    if result.terminal_number and result.terminal_number != str(settings.SEP_TERMINAL_ID):
+        return _reverse_or_review(payment_id, client, 'Verified terminal does not match this merchant.')
 
     try:
         payment = record_verified_sep_success(
@@ -273,6 +278,9 @@ def verify_payment(payment_id, *, client=None):
 
 def _reverse_or_review(payment_id, client, reason):
     payment = PaymentRecord.objects.get(pk=payment_id)
+    if payment.status == PaymentRecord.Status.SUCCEEDED:
+        # Already applied to the order (e.g. a concurrent callback won); never reverse it here.
+        return payment
     try:
         result = client.reverse(payment.ref_num)
         reversed_ok = result.success or result.result_code == 5
@@ -348,6 +356,17 @@ def record_verified_sep_success(
     if order.status != Order.Status.AWAITING_PAYMENT:
         return _mark(payment, PaymentRecord.Status.REQUIRES_REVIEW,
                      reason='The order is no longer awaiting payment.', code=response_code)
+
+    # The attempt's amount was captured when it started; staff may have changed
+    # shipping since (a superseded attempt can still return late). Only apply a
+    # payment that still equals the order's current payable total.
+    try:
+        current_total = _order_total_for_payment(order)
+    except ValidationError:
+        current_total = None
+    if current_total != payment.amount or order.currency != payment.currency:
+        return _mark(payment, PaymentRecord.Status.REQUIRES_REVIEW,
+                     reason='The order total changed after this payment attempt started.', code=response_code)
 
     if order.payments.filter(status=PaymentRecord.Status.SUCCEEDED).exclude(pk=payment.pk).exists():
         return _mark(payment, PaymentRecord.Status.REQUIRES_REVIEW,

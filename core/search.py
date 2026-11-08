@@ -23,6 +23,7 @@ ARABIC_TO_PERSIAN = str.maketrans({
 TO_LATIN_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
 TO_PERSIAN_DIGITS = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
 DIACRITICS = re.compile(r'[ً-ٰٟـ]')
+CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f]')
 STOP_WORDS = {'قیمت', 'خرید', 'فروش', 'روز', 'امروز', 'آهن', 'آلات', 'آهن‌آلات', 'و', 'با', 'در', 'از'}
 
 PRODUCT_FIELDS = (
@@ -34,7 +35,7 @@ PRODUCT_FIELDS = (
 
 def normalize_fa(text):
     text = str(text or '').translate(ARABIC_TO_PERSIAN).translate(TO_LATIN_DIGITS)
-    text = DIACRITICS.sub('', text)
+    text = CONTROL_CHARS.sub(' ', DIACRITICS.sub('', text))
     text = text.replace('‌', ' ').replace('‏', '').replace('‎', '')
     text = re.sub(r'[\s\-_/،,]+', ' ', text)
     return text.strip().lower()
@@ -49,7 +50,14 @@ def tokens(query):
 def _token_q(token, fields):
     forms = {token, token.translate(TO_PERSIAN_DIGITS)}
     # Data may store the token with a ZWNJ or a plain space inside words.
-    return reduce(or_, (Q(**{f'{field}__icontains': form}) for field in fields for form in forms))
+    return reduce(or_, (_field_q(field, form) for field in fields for form in forms))
+
+
+def _field_q(field, form):
+    # Inactive variants must never make their product discoverable.
+    if field.startswith('variants__'):
+        return Q(**{f'{field}__icontains': form, 'variants__is_active': True})
+    return Q(**{f'{field}__icontains': form})
 
 
 def match_q(query, fields=PRODUCT_FIELDS):
@@ -64,7 +72,7 @@ def _vocabulary():
     if words is None:
         from catalog.models import Category, Manufacturer, Product
 
-        names = list(Product.objects.filter(is_active=True).values_list('name', flat=True))
+        names = list(Product.objects.filter(is_active=True, category__is_active=True).values_list('name', flat=True))
         names += list(Category.objects.filter(is_active=True).values_list('name', flat=True))
         names += list(Manufacturer.objects.filter(is_active=True).values_list('name', flat=True))
         words = sorted({normalize_fa(name) for name in names if name})

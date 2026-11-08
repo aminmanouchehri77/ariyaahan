@@ -115,7 +115,8 @@ def category_detail(request, slug):
     query_without_page.pop('page', None)
     has_active_filters = any(value for key, value in query_without_page.items() if key in filters.fields)
     active_filter_chips = []
-    for name, value in filters.cleaned_data.items():
+    # Chips describe applied filters only; an invalid form applies none.
+    for name, value in (filters.cleaned_data.items() if filters_valid else ()):
         if name not in request.GET or value in ('', None):
             continue
         field = filters.fields[name]
@@ -175,6 +176,11 @@ def product_detail(request, slug):
         product.variants.filter(is_active=True).select_related('manufacturer')
     )).order_by('sort_order', 'name')
     variants = attach_unit_prices(attach_sparklines(mark_best_prices(mark_stock_state(mark_price_state(list(variants))))))
+    for variant in variants:
+        variant.price_orderable = bool(
+            variant.latest_amount is not None and variant.latest_available
+            and not variant.price_expired and not variant.price_validity_unknown
+        )
     customer_profile = CustomerProfile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
     questions = ProductQuestion.objects.filter(
         product=product,
@@ -428,6 +434,18 @@ def price_history(request, slug):
     })
 
 
+CSV_FORMULA_PREFIXES = ('=', '+', '-', '@', '\t', '\r')
+
+
+def _csv_cell(value):
+    """Neutralise spreadsheet formulas (CSV injection) in text cells."""
+    if value is None:
+        return ''
+    if isinstance(value, str) and value.startswith(CSV_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 @require_GET
 def category_price_list(request, slug):
     """Downloadable price list (CSV, Excel-compatible UTF-8 with BOM)."""
@@ -454,14 +472,15 @@ def category_price_list(request, slug):
         state = (
             'بدون قیمت' if variant.latest_amount is None else
             'منقضی' if variant.price_expired else
-            'اعتبار نامشخص' if variant.price_validity_unknown else 'معتبر'
+            'اعتبار نامشخص' if variant.price_validity_unknown else
+            'ناموجود در ثبت قیمت' if not variant.latest_available else 'معتبر'
         )
-        writer.writerow([
-            variant.product.name, variant.name, variant.manufacturer or '',
+        writer.writerow([_csv_cell(cell) for cell in (
+            variant.product.name, variant.name, str(variant.manufacturer or ''),
             *[cell['value'] for cell in spec_cells(variant, columns)],
             variant.latest_amount or '', variant.latest_currency or '', variant.latest_unit_label or '',
             variant.latest_location or '', jalali_datetime(variant.latest_observed_at),
             jalali_datetime(variant.latest_valid_until), state, variant.stock_status,
-        ])
+        )])
     response['Cache-Control'] = 'no-store'
     return response

@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime as parse_iso_datetime
 
+from catalog.csv_import import check_file, clean_row, iter_rows
 from catalog.models import ProductVariant
 from pricing.models import InventoryLocation, PriceObservation, StockObservation
 
@@ -48,8 +49,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, csv_path, commit=False, **options):
-        if not csv_path.is_file():
-            raise CommandError(f'فایل پیدا نشد: {csv_path}')
+        check_file(csv_path)
 
         required = {'variant_sku', 'location_name', 'quantity', 'unit', 'is_available', 'valid_until'}
         rows = []
@@ -60,9 +60,9 @@ class Command(BaseCommand):
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
                     missing = ', '.join(sorted(required - set(reader.fieldnames or [])))
                     raise CommandError(f'ستون‌های لازم در CSV نیست: {missing}')
-                for line_number, raw in enumerate(reader, start=2):
+                for line_number, raw in iter_rows(reader):
                     try:
-                        rows.append((line_number, self._parse_row(raw)))
+                        rows.append((line_number, self._parse_row(clean_row(raw))))
                     except (
                         ValueError, InvalidOperation, ProductVariant.DoesNotExist,
                         InventoryLocation.DoesNotExist,

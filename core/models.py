@@ -5,6 +5,25 @@ from django.conf import settings
 from django.db import models
 
 
+def is_safe_internal_path(value):
+    """True for a same-site path such as '/steel/rebar/?a=1'.
+
+    Rejects scheme/host URLs, protocol-relative '//host', backslashes (which
+    browsers treat as '/'), and control/whitespace characters (browsers strip
+    tab/newline, turning '/\t/evil.example' into '//evil.example').
+    """
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    if not value or not value.startswith('/') or value.startswith('//'):
+        return False
+    if '\\' in value or any(ord(char) < 33 or ord(char) == 127 for char in value):
+        return False
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc:
+        return False
+    return url_has_allowed_host_and_scheme(value, allowed_hosts=None)
+
+
 class RedirectRule(models.Model):
     class StatusCode(models.IntegerChoices):
         PERMANENT = 301, 'دائمی (301)'
@@ -34,8 +53,7 @@ class RedirectRule(models.Model):
             if destination:
                 raise ValidationError({'destination': 'برای پاسخ 410 مقصد وارد نکنید.'})
         else:
-            parts = urlsplit(destination)
-            if not destination.startswith('/') or destination.startswith('//') or parts.scheme or parts.netloc:
+            if not is_safe_internal_path(destination):
                 raise ValidationError({'destination': 'مقصد باید مسیر داخلی سایت باشد؛ نشانی خارجی مجاز نیست.'})
             if destination.rstrip('/') == old.rstrip('/'):
                 raise ValidationError({'destination': 'مسیر مقصد نمی‌تواند همان مسیر قدیمی باشد.'})

@@ -167,7 +167,7 @@ ALLOWED_TAGS = {
 }
 ALLOWED_ATTRIBUTES = {
     'a': {'href', 'title'},
-    'img': {'src', 'alt', 'title', 'width', 'height', 'loading'},
+    'img': {'src', 'alt', 'title', 'width', 'height'},  # loading=lazy is added below
     'th': {'colspan', 'rowspan', 'scope'},
     'td': {'colspan', 'rowspan'},
     'span': {'dir'},
@@ -186,7 +186,12 @@ def rich_text(value):
     import markdown as markdown_lib
     import nh3
 
-    html = markdown_lib.markdown(str(value), extensions=['tables', 'sane_lists', 'nl2br'], output_format='html')
+    try:
+        html = markdown_lib.markdown(str(value), extensions=['tables', 'sane_lists', 'nl2br'], output_format='html')
+    except Exception:  # malformed input must not turn a page into a 500 (PYSEC-2026-89)
+        from django.utils.html import escape, linebreaks
+
+        html = linebreaks(escape(str(value)))
     clean = nh3.clean(
         html, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, url_schemes={'http', 'https', 'mailto', 'tel'},
         link_rel='nofollow noopener noreferrer',

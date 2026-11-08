@@ -49,19 +49,13 @@ def admin_dashboard(context):
             data['tasks'].append({'label': 'در انتظار پذیرش مشتری', 'value': counts['awaiting'], 'tone': 'info', 'url': _url('admin:orders_preinvoice_changelist', 'status__exact=awaiting_customer')})
 
     if can('orders.view_order'):
-        from orders.models import Order, OrderItem, PaymentRecord
+        from orders.models import Order, OrderItem
 
         awaiting = Order.objects.filter(status=Order.Status.AWAITING_PAYMENT).count()
         to_ship = Order.objects.filter(status__in=(Order.Status.PAID, Order.Status.PROCESSING)).count()
-        paid_today = PaymentRecord.objects.filter(status=PaymentRecord.Status.SUCCEEDED, verified_at__date=today)
-        revenue = paid_today.aggregate(total=Sum('amount_rial'))['total'] or Decimal('0')
-        data['kpis'].append({'label': 'دریافتی امروز (ریال)', 'value': revenue, 'money': True, 'icon': 'wallet', 'url': _url('admin:orders_paymentrecord_changelist')})
         data['kpis'].append({'label': 'سفارش در انتظار پرداخت', 'value': awaiting, 'icon': 'credit-card', 'url': _url('admin:orders_order_changelist', 'status__exact=awaiting_payment')})
         if to_ship:
             data['tasks'].append({'label': 'سفارش پرداخت‌شده برای آماده‌سازی/ارسال', 'value': to_ship, 'tone': 'molten', 'url': _url('admin:orders_order_changelist', 'status__in=paid,processing')})
-        review = PaymentRecord.objects.filter(status=PaymentRecord.Status.REQUIRES_REVIEW).count()
-        if review:
-            data['tasks'].append({'label': 'تراکنش نیازمند بررسی (حداکثر ۳۰ دقیقه برای Verify)', 'value': review, 'tone': 'danger', 'url': _url('admin:orders_paymentrecord_changelist', 'status__exact=review')})
         data['recent_orders'] = list(Order.objects.select_related('customer').order_by('-created_at')[:6])
         for order in data['recent_orders']:
             order.total = sum((item.line_total for item in OrderItem.objects.filter(order=order)), Decimal('0'))
@@ -74,13 +68,27 @@ def admin_dashboard(context):
         peak = max([n for _, n in series] + [1])
         data['chart'] = [{'day': day, 'count': n, 'height': round(8 + 92 * n / peak)} for day, n in series]
 
+    if can('orders.view_paymentrecord'):
+        # Payment figures need their own permission, not just order access.
+        from orders.models import PaymentRecord
+
+        paid_today = PaymentRecord.objects.filter(status=PaymentRecord.Status.SUCCEEDED, verified_at__date=today)
+        revenue = paid_today.aggregate(total=Sum('amount_rial'))['total'] or Decimal('0')
+        data['kpis'].insert(0, {'label': 'دریافتی امروز (ریال)', 'value': revenue, 'money': True, 'icon': 'wallet', 'url': _url('admin:orders_paymentrecord_changelist')})
+        review = PaymentRecord.objects.filter(status=PaymentRecord.Status.REQUIRES_REVIEW).count()
+        if review:
+            data['tasks'].append({'label': 'تراکنش نیازمند بررسی (حداکثر ۳۰ دقیقه برای Verify)', 'value': review, 'tone': 'danger', 'url': _url('admin:orders_paymentrecord_changelist', 'status__exact=review')})
+
     if can('pricing.view_priceobservation'):
         from catalog.models import ProductVariant
         from pricing.models import PriceObservation, StockObservation
         from pricing.selectors import with_latest_price
 
         pending_prices = PriceObservation.objects.filter(status=PriceObservation.Status.PENDING).count()
-        pending_stock = StockObservation.objects.filter(status=StockObservation.Status.PENDING).count()
+        pending_stock = (
+            StockObservation.objects.filter(status=StockObservation.Status.PENDING).count()
+            if can('pricing.view_stockobservation') else 0
+        )
         if pending_prices:
             data['tasks'].append({'label': 'قیمت در انتظار تأیید', 'value': pending_prices, 'tone': 'molten', 'url': _url('admin:pricing_priceobservation_changelist', 'status__exact=pending')})
         if pending_stock:
@@ -93,8 +101,10 @@ def admin_dashboard(context):
             score = round(100 * fresh / len(variants))
             data['freshness'] = {'score': score, 'fresh': fresh, 'total': len(variants), 'stale': len(variants) - fresh}
             data['kpis'].append({'label': 'تازگی قیمت‌ها', 'value': score, 'suffix': '٪', 'icon': 'timer', 'url': _url('admin:pricing_priceobservation_changelist')})
-        data['quick'].append({'label': 'ثبت قیمت تازه', 'icon': 'plus', 'url': _url('admin:pricing_priceobservation_add')})
-        data['quick'].append({'label': 'ثبت موجودی', 'icon': 'warehouse', 'url': _url('admin:pricing_stockobservation_add')})
+        if can('pricing.add_priceobservation'):
+            data['quick'].append({'label': 'ثبت قیمت تازه', 'icon': 'plus', 'url': _url('admin:pricing_priceobservation_add')})
+        if can('pricing.add_stockobservation'):
+            data['quick'].append({'label': 'ثبت موجودی', 'icon': 'warehouse', 'url': _url('admin:pricing_stockobservation_add')})
 
     if can('catalog.add_product'):
         data['quick'].append({'label': 'افزودن کالا', 'icon': 'package', 'url': _url('admin:catalog_product_add')})
@@ -113,22 +123,26 @@ def admin_dashboard(context):
         from marketplace.models import ListingReport, MarketplaceListing
 
         pending = MarketplaceListing.objects.filter(status=MarketplaceListing.Status.PENDING).count()
-        reports = ListingReport.objects.filter(status=ListingReport.Status.OPEN).count()
+        reports = (
+            ListingReport.objects.filter(status=ListingReport.Status.OPEN).count()
+            if can('marketplace.view_listingreport') else 0
+        )
         if pending:
             data['tasks'].append({'label': 'آگهی تالار منتظر بررسی', 'value': pending, 'tone': 'info', 'url': _url('admin:marketplace_marketplacelisting_changelist', 'status__exact=pending')})
         if reports:
             data['tasks'].append({'label': 'گزارش تخلف باز', 'value': reports, 'tone': 'danger', 'url': _url('admin:marketplace_listingreport_changelist', 'status__exact=open')})
 
-    if can('content.view_productreview'):
-        from content.models import ArticleComment, ProductQuestion, ProductReview
+    from content.models import ArticleComment, ProductQuestion, ProductReview
 
-        moderation = (
-            ProductReview.objects.filter(status=ProductReview.Status.PENDING).count()
-            + ProductQuestion.objects.filter(status=ProductQuestion.Status.PENDING).count()
-            + ArticleComment.objects.filter(status=ArticleComment.Status.PENDING).count()
-        )
-        if moderation:
-            data['tasks'].append({'label': 'دیدگاه/پرسش منتظر بازبینی', 'value': moderation, 'tone': 'info', 'url': _url('admin:content_productquestion_changelist', 'status__exact=pending')})
+    moderation_queues = [
+        (model, name) for model, name in (
+            (ProductQuestion, 'productquestion'), (ProductReview, 'productreview'), (ArticleComment, 'articlecomment'),
+        ) if can(f'content.view_{name}')
+    ]
+    moderation = sum(model.objects.filter(status=model.Status.PENDING).count() for model, _ in moderation_queues)
+    if moderation:
+        first = moderation_queues[0][1]
+        data['tasks'].append({'label': 'دیدگاه/پرسش منتظر بازبینی', 'value': moderation, 'tone': 'info', 'url': _url(f'admin:content_{first}_changelist', 'status__exact=pending')})
 
     if can('core.view_auditlog'):
         from core.models import AuditLog

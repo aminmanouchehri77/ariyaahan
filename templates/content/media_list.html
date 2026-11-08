@@ -11,7 +11,7 @@
 </div></section>
 <section class="section content-section"><div class="container">
   {% if items %}<div class="article-grid">{% for item in items %}
-    <a class="article-card" href="{{ item.media_url }}" target="_blank" rel="noopener noreferrer">
+    <a class="article-card" href="{{ item.media_url }}" target="_blank" rel="nofollow noopener noreferrer">
       <span class="article-card__media">{% if item.cover_image_url %}<img src="{{ item.cover_image_url }}" alt="" loading="lazy">{% else %}<img class="is-render" src="{% steel_image 'beam' 'sm' %}" alt="" loading="lazy">{% endif %}<span class="play-badge">{% if is_video %}{% icon 'clapperboard' %}{% else %}{% icon 'mic' %}{% endif %}</span></span>
       <span class="article-card__body"><h3>{{ item.title }}</h3><p>{{ item.summary }}</p>{% if item.duration_seconds %}<span class="article-card__meta"><span>{% icon 'clock' 'i--sm' %} {% widthratio item.duration_seconds 60 1 as minutes %}{{ minutes|fa_digits }} دقیقه</span></span>{% endif %}</span>
     </a>

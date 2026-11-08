@@ -1,9 +1,11 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -25,7 +27,7 @@ from accounts.sms import SMSBackendNotConfigured, SMSDeliveryFailed
 from .cart import Cart, CartError
 from .forms import AcceptPreInvoiceQuoteForm, CartQuantityForm, PreInvoiceForm
 from core.seo import canonical_url
-from core.throttle import submission_allowed
+from core.throttle import client_ip, submission_allowed
 
 from .models import Order, PaymentRecord, PreInvoice, PreInvoiceItem
 from .payment_services import (
@@ -47,6 +49,7 @@ from .services import (
 CHECKOUT_QUOTE_SESSION_KEY = 'ariaa_checkout_quote'
 CHECKOUT_ACK_SESSION_KEY = 'ariaa_checkout_quote_ack_required'
 CHECKOUT_CHANGES_SESSION_KEY = 'ariaa_checkout_quote_changes'
+CHECKOUT_SUBMISSION_SESSION_KEY = 'ariaa_checkout_submission'
 PREINVOICE_ACCEPTANCE_SESSION_KEY = 'ariaa_preinvoice_acceptance'
 
 
@@ -56,7 +59,17 @@ def _set_checkout_quote_context(context, *, confirmation_required=False, changes
     return context
 
 
+def _checkout_submission_key(request):
+    """One key per viewed checkout page; a pre-invoice can be created once per key."""
+    try:
+        return uuid.UUID(str(request.session.get(CHECKOUT_SUBMISSION_SESSION_KEY)))
+    except ValueError:
+        return None
+
+
 def _remember_checkout_quote(request, snapshot):
+    if _checkout_submission_key(request) is None:
+        request.session[CHECKOUT_SUBMISSION_SESSION_KEY] = str(uuid.uuid4())
     previous = request.session.get(CHECKOUT_QUOTE_SESSION_KEY)
     changes = checkout_quote_changes(previous, snapshot) if previous else []
     confirmation_required = bool(
@@ -73,6 +86,7 @@ def _remember_checkout_quote(request, snapshot):
 
 
 def _clear_checkout_quote(request):
+    request.session.pop(CHECKOUT_SUBMISSION_SESSION_KEY, None)
     request.session.pop(CHECKOUT_QUOTE_SESSION_KEY, None)
     request.session.pop(CHECKOUT_ACK_SESSION_KEY, None)
     request.session.pop(CHECKOUT_CHANGES_SESSION_KEY, None)
@@ -121,7 +135,7 @@ def cart_detail(request):
         'cart_weight_complete': weight_complete,
         'grand_total_rial': combined_total(
             [(total['currency'], total['amount']) for total in context['currency_totals']], shipping,
-        ) if not context['has_unpriced_items'] else None,
+        ) if not context['has_unpriced_items'] and weight_complete else None,
     })
     if request.user.is_authenticated:
         profile = CustomerProfile.objects.filter(user=request.user).first()
@@ -194,6 +208,63 @@ def checkout(request):
     ))
 
 
+def _create_preinvoice(request, profile, form, address_values, previous_quote, submission_key):
+    """Lock the cart's variants, re-check the quote and write the pre-invoice snapshot."""
+    late_quote_changes = []
+    needs_late_confirmation = False
+    preinvoice = None
+    cart = Cart(request)
+    variant_ids = sorted(int(variant_id) for variant_id in cart.items)
+    list(
+        ProductVariant.objects.select_for_update()
+        .filter(pk__in=variant_ids)
+        .order_by('pk')
+    )
+
+    # Price and stock approvals take the same variant lock. Refresh the quote
+    # while holding it so an approval cannot slip between the final comparison
+    # and the pre-invoice snapshot being written.
+    context = build_cart_context(request)
+    cart_became_empty = context['cart_is_empty']
+    if not cart_became_empty:
+        locked_quote = checkout_quote_snapshot(context)
+        late_quote_changes = checkout_quote_changes(previous_quote, locked_quote)
+        if late_quote_changes:
+            request.session[CHECKOUT_QUOTE_SESSION_KEY] = locked_quote
+            request.session[CHECKOUT_ACK_SESSION_KEY] = True
+            request.session[CHECKOUT_CHANGES_SESSION_KEY] = late_quote_changes
+            needs_late_confirmation = True
+        elif request.session.get(CHECKOUT_ACK_SESSION_KEY) and not form.cleaned_data['price_confirmation']:
+            late_quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+            needs_late_confirmation = True
+        else:
+            preinvoice = PreInvoice.objects.create(
+                submission_key=submission_key,
+                customer=profile,
+                customer_name=form.cleaned_data['customer_name'],
+                mobile=form.cleaned_data['mobile'],
+                company_name=form.cleaned_data['company_name'],
+                **address_values,
+                customer_note=form.cleaned_data['customer_note'],
+                status=(
+                    PreInvoice.Status.PENDING
+                    if all(line['price_is_usable'] and line['stock_is_usable'] for line in context['cart_lines'])
+                    else PreInvoice.Status.REVIEW
+                ),
+            )
+            for line in context['cart_lines']:
+                snapshot = snapshot_line(line)
+                price_observation_id = snapshot.pop('price_observation_id')
+                stock_observation_id = snapshot.pop('stock_observation_id')
+                PreInvoiceItem.objects.create(
+                    preinvoice=preinvoice,
+                    price_observation_id=price_observation_id,
+                    stock_observation_id=stock_observation_id,
+                    **snapshot,
+                )
+    return preinvoice, context, cart_became_empty, late_quote_changes, needs_late_confirmation
+
+
 @never_cache
 @require_POST
 def submit_preinvoice(request):
@@ -210,18 +281,25 @@ def submit_preinvoice(request):
     if previous_quote is None:
         messages.warning(request, 'صفحهٔ ثبت درخواست منقضی شده است؛ اقلام و قیمت‌ها را دوباره مرور کنید.')
         return redirect('orders:checkout')
-    quote_changes = checkout_quote_changes(previous_quote, current_quote)
-    confirmation_required = bool(
-        request.session.get(CHECKOUT_ACK_SESSION_KEY) or quote_changes
-    )
-    if quote_changes:
+    submission_key = _checkout_submission_key(request)
+    if submission_key is None:
+        messages.warning(request, 'صفحهٔ ثبت درخواست منقضی شده است؛ اقلام و قیمت‌ها را دوباره مرور کنید.')
+        return redirect('orders:checkout')
+    existing = PreInvoice.objects.filter(submission_key=submission_key).only('public_id').first()
+    if existing:
+        return redirect('orders:preinvoice_detail', public_id=existing.public_id)
+
+    fresh_changes = checkout_quote_changes(previous_quote, current_quote)
+    if fresh_changes:
         request.session[CHECKOUT_QUOTE_SESSION_KEY] = current_quote
         request.session[CHECKOUT_ACK_SESSION_KEY] = True
-        request.session[CHECKOUT_CHANGES_SESSION_KEY] = quote_changes
-    else:
-        quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+        request.session[CHECKOUT_CHANGES_SESSION_KEY] = fresh_changes
+    # Changes seen earlier only need the acknowledgement checkbox; changes that
+    # appeared since the customer last saw the page always force a re-review.
+    quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
+    confirmation_required = bool(request.session.get(CHECKOUT_ACK_SESSION_KEY))
 
-    if quote_changes:
+    if fresh_changes:
         form_data = request.POST.copy()
         form_data['price_confirmation'] = ''
         form = PreInvoiceForm(form_data, addresses=addresses)
@@ -259,59 +337,17 @@ def submit_preinvoice(request):
         'delivery_city': selected_address.city if selected_address else form.cleaned_data['delivery_city'],
     }
 
-    late_quote_changes = []
-    needs_late_confirmation = False
-    cart_became_empty = False
-    preinvoice = None
-    with transaction.atomic():
-        cart = Cart(request)
-        variant_ids = sorted(int(variant_id) for variant_id in cart.items)
-        list(
-            ProductVariant.objects.select_for_update()
-            .filter(pk__in=variant_ids)
-            .order_by('pk')
-        )
-
-        # Price and stock approvals take the same variant lock. Refresh the quote
-        # while holding it so an approval cannot slip between the final comparison
-        # and the pre-invoice snapshot being written.
-        context = build_cart_context(request)
-        cart_became_empty = context['cart_is_empty']
-        if not cart_became_empty:
-            locked_quote = checkout_quote_snapshot(context)
-            late_quote_changes = checkout_quote_changes(previous_quote, locked_quote)
-            if late_quote_changes:
-                request.session[CHECKOUT_QUOTE_SESSION_KEY] = locked_quote
-                request.session[CHECKOUT_ACK_SESSION_KEY] = True
-                request.session[CHECKOUT_CHANGES_SESSION_KEY] = late_quote_changes
-                needs_late_confirmation = True
-            elif request.session.get(CHECKOUT_ACK_SESSION_KEY) and not form.cleaned_data['price_confirmation']:
-                late_quote_changes = request.session.get(CHECKOUT_CHANGES_SESSION_KEY, [])
-                needs_late_confirmation = True
-            else:
-                preinvoice = PreInvoice.objects.create(
-                    customer=profile,
-                    customer_name=form.cleaned_data['customer_name'],
-                    mobile=form.cleaned_data['mobile'],
-                    company_name=form.cleaned_data['company_name'],
-                    **address_values,
-                    customer_note=form.cleaned_data['customer_note'],
-                    status=(
-                        PreInvoice.Status.PENDING
-                        if all(line['price_is_usable'] and line['stock_is_usable'] for line in context['cart_lines'])
-                        else PreInvoice.Status.REVIEW
-                    ),
-                )
-                for line in context['cart_lines']:
-                    snapshot = snapshot_line(line)
-                    price_observation_id = snapshot.pop('price_observation_id')
-                    stock_observation_id = snapshot.pop('stock_observation_id')
-                    PreInvoiceItem.objects.create(
-                        preinvoice=preinvoice,
-                        price_observation_id=price_observation_id,
-                        stock_observation_id=stock_observation_id,
-                        **snapshot,
-                    )
+    try:
+        with transaction.atomic():
+            preinvoice, context, cart_became_empty, late_quote_changes, needs_late_confirmation = _create_preinvoice(
+                request, profile, form, address_values, previous_quote, submission_key,
+            )
+    except IntegrityError:
+        # A concurrent duplicate submission of the same checkout page won the race.
+        existing = PreInvoice.objects.filter(submission_key=submission_key).first()
+        if existing is None:
+            raise
+        return redirect('orders:preinvoice_detail', public_id=existing.public_id)
 
     if cart_became_empty:
         messages.warning(request, 'کالاهای سبد دیگر در دسترس نیستند؛ سبد را دوباره بررسی کنید.')
@@ -395,7 +431,7 @@ def request_preinvoice_acceptance_code(request, public_id):
         issue_preinvoice_acceptance_code(
             preinvoice.mobile,
             preinvoice.public_id,
-            client_ip=request.META.get('REMOTE_ADDR', '')[:45],
+            client_ip=(client_ip(request) or '')[:45],
         )
     except OTPRateLimited as error:
         messages.warning(request, f'برای درخواست دوباره کمی صبر کنید؛ حدود {error.retry_after} ثانیه دیگر تلاش کنید.')
@@ -561,9 +597,14 @@ def order_pay(request, public_id):
 @never_cache
 @require_http_methods(['GET', 'POST'])
 def sep_callback(request):
-    """Bank return URL. Cross-site POST: no session, no CSRF token, untrusted data."""
-    data = request.POST if request.method == 'POST' else request.GET
-    payment = handle_sep_callback(data)
+    """Bank return URL. Cross-site POST: no session, no CSRF token, untrusted data.
+
+    SEP returns with POST (no ``GetMethod`` is requested); a GET (refresh, shared
+    link, crafted URL) never changes payment state.
+    """
+    if request.method != 'POST':
+        return redirect('core:home')
+    payment = handle_sep_callback(request.POST)
     if payment is None:
         return redirect('core:home')
     return redirect('orders:payment_result', key=payment.idempotency_key)

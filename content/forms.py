@@ -1,4 +1,5 @@
 from django import forms
+from django.core.validators import MaxValueValidator
 
 from core.phone import normalize_iran_mobile
 
@@ -34,6 +35,7 @@ class CompanyRequestForm(forms.ModelForm):
                 self.fields.pop(name)
             self.fields['subject'].required = True
             self.fields['experience_years'].required = False
+            self.fields['experience_years'].validators.append(MaxValueValidator(60))
         elif kind == CompanyRequest.Kind.EXPORT:
             self.fields.pop('experience_years')
             self.fields['destination_country'].required = True

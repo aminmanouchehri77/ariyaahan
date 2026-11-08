@@ -6,12 +6,14 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from catalog.csv_import import check_file, clean_row, iter_rows
 from catalog.models import ProductVariant
 from pricing.models import PriceObservation
 
 
 TRUE_VALUES = {'1', 'true', 'yes', 'y', 'بله', 'موجود'}
 FALSE_VALUES = {'0', 'false', 'no', 'n', 'خیر', 'ناموجود'}
+MAX_AMOUNT = Decimal(10) ** 18
 
 
 def parse_bool(value, *, default=None):
@@ -48,8 +50,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, csv_path, commit=False, **options):
-        if not csv_path.is_file():
-            raise CommandError(f'فایل پیدا نشد: {csv_path}')
+        check_file(csv_path)
 
         required = {'variant_sku', 'amount', 'currency', 'price_basis'}
         rows = []
@@ -60,9 +61,9 @@ class Command(BaseCommand):
                 if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
                     missing = ', '.join(sorted(required - set(reader.fieldnames or [])))
                     raise CommandError(f'ستون‌های لازم در CSV نیست: {missing}')
-                for line_number, raw in enumerate(reader, start=2):
+                for line_number, raw in iter_rows(reader):
                     try:
-                        row = self._parse_row(raw)
+                        row = self._parse_row(clean_row(raw))
                         rows.append((line_number, row))
                     except (ValueError, InvalidOperation, ProductVariant.DoesNotExist) as error:
                         errors.append(f'ردیف {line_number}: {error}')
@@ -96,7 +97,7 @@ class Command(BaseCommand):
         variant = ProductVariant.objects.select_related('product').get(sku=sku)
 
         amount = Decimal((raw.get('amount') or '').strip())
-        if not amount.is_finite() or amount < 1 or amount != amount.quantize(Decimal('1')):
+        if not amount.is_finite() or amount < 1 or amount >= MAX_AMOUNT or amount != amount.quantize(Decimal('1')):
             raise ValueError('amount باید عدد صحیح مثبت باشد.')
         currency = (raw.get('currency') or '').strip().upper()
         if currency not in PriceObservation.Currency.values:
@@ -107,6 +108,8 @@ class Command(BaseCommand):
 
         observed_at = parse_optional_datetime(raw.get('observed_at')) or timezone.now()
         valid_until = parse_optional_datetime(raw.get('valid_until'))
+        if valid_until is not None and valid_until <= observed_at:
+            raise ValueError('valid_until باید پس از observed_at باشد.')
         return {
             'variant': variant,
             'amount': amount,

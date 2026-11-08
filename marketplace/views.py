@@ -11,7 +11,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.models import CustomerProfile
-from core.throttle import submission_allowed
+from core.throttle import client_ip, submission_allowed
 from .forms import MarketplaceListingForm
 from .models import ListingReport, MarketplaceListing
 
@@ -116,7 +116,9 @@ def report_listing(request, pk):
     if not submission_allowed(request, 'listing-report', limit=10, window=3600):
         messages.warning(request, 'تعداد گزارش‌های شما زیاد بوده است؛ بعداً دوباره تلاش کنید.')
         return redirect(hall)
-    identity = request.user.pk if request.user.is_authenticated else request.META.get('REMOTE_ADDR', '')
+    # One report per network address, whether or not the visitor is signed in: switching between
+    # several accounts from one address must not count as independent reports.
+    identity = client_ip(request) or 'unknown'
     reporter_key = hashlib.sha256(f'{settings.SECRET_KEY}:report:{identity}'.encode()).hexdigest()
     try:
         with transaction.atomic():
@@ -124,7 +126,12 @@ def report_listing(request, pk):
                 listing=listing, reason=reason, reporter_key=reporter_key,
                 details=request.POST.get('details', '').strip()[:400],
             )
-            open_reports = listing.reports.filter(status=ListingReport.Status.OPEN).count()
+            open_reports = listing.reports.filter(status=ListingReport.Status.OPEN)
+            if listing.reviewed_at:
+                # Reports raised before the last moderation decision were already weighed by a reviewer;
+                # without this a single new report would hide a re-approved listing again.
+                open_reports = open_reports.filter(created_at__gt=listing.reviewed_at)
+            open_reports = open_reports.count()
             if open_reports >= AUTO_HIDE_REPORTS:
                 # Several independent reports: pull the listing back for review.
                 MarketplaceListing.objects.filter(pk=listing.pk).update(

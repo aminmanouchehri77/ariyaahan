@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,6 +16,7 @@ import ipaddress
 import json
 from urllib.parse import urlsplit
 
+from core.throttle import client_ip
 from orders.cart import Cart
 from pricing.models import PriceObservation
 
@@ -53,7 +54,7 @@ def _safe_next_url(request, candidate):
 
 
 def _request_login_code(request, mobile):
-    issue_login_code(mobile, client_ip=request.META.get('REMOTE_ADDR', '')[:45])
+    issue_login_code(mobile, client_ip=(client_ip(request) or '')[:45])
 
 
 def _add_otp_error_message(request, error):
@@ -325,7 +326,7 @@ def price_alerts_view(request):
         return redirect('accounts:profile')
     initial = {}
     variant_param = request.GET.get('variant', '')
-    if request.method == 'GET' and variant_param.isdigit():
+    if request.method == 'GET' and variant_param.isascii() and variant_param.isdigit():
         from catalog.models import ProductVariant
 
         variant = ProductVariant.objects.filter(pk=int(variant_param), is_active=True).first()
@@ -339,7 +340,8 @@ def price_alerts_view(request):
         if baseline:
             _set_price_alert_baseline(alert, baseline)
         try:
-            alert.save()
+            with transaction.atomic():
+                alert.save()
         except IntegrityError:
             form.add_error(None, 'همین هشدار قبلاً ثبت شده است.')
         else:
@@ -392,7 +394,8 @@ def price_alert_edit(request, alert_id):
             updated.baseline_tax_included = None
             updated.baseline_observed_at = None
         try:
-            updated.save()
+            with transaction.atomic():
+                updated.save()
         except IntegrityError:
             form.add_error(None, 'هشدار مشابهی با همین شرط از قبل ثبت شده است.')
         else:
