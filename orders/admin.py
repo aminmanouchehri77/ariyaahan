@@ -173,9 +173,9 @@ class OrderStatusEventAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentRecord)
 class PaymentRecordAdmin(admin.ModelAdmin):
-    list_display = ('initiated_at', 'order', 'amount', 'currency', 'provider', 'status', 'reference')
+    list_display = ('initiated_at', 'order', 'amount', 'currency', 'provider', 'status', 'reference', 'verified_at')
     list_filter = ('status', 'provider', 'currency', 'initiated_at')
-    search_fields = ('order__public_id', 'reference')
+    search_fields = ('order__public_id', 'reference', 'idempotency_key')
     readonly_fields = tuple(field.name for field in PaymentRecord._meta.fields)
 
     def has_add_permission(self, request):

@@ -225,6 +225,9 @@ TWA_PACKAGE_NAME = os.getenv('TWA_PACKAGE_NAME', '').strip()
 TWA_SHA256_CERT_FINGERPRINTS = os.getenv('TWA_SHA256_CERT_FINGERPRINTS', '').strip()
 PAYMENT_ENABLED = os.getenv('PAYMENT_ENABLED', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
 PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', '').strip().lower()
+# The SEP API adapter stays unavailable until the bank's signed integration
+# contract and sandbox credentials have been received and verified.
+SEP_INTEGRATION_READY = False
 SEP_TERMINAL_ID = os.getenv('SEP_TERMINAL_ID', '').strip()
 SEP_TOKEN_URL = os.getenv('SEP_TOKEN_URL', '').strip()
 SEP_PAYMENT_URL = os.getenv('SEP_PAYMENT_URL', '').strip()

@@ -317,24 +317,32 @@ class OrderStatusEvent(models.Model):
 class PaymentRecord(models.Model):
     class Status(models.TextChoices):
         INITIATED = 'initiated', 'شروع‌شده'
+        REQUIRES_REVIEW = 'review', 'نیازمند بررسی'
         SUCCEEDED = 'succeeded', 'موفق'
         FAILED = 'failed', 'ناموفق'
+        CANCELLED = 'cancelled', 'لغوشده'
         REFUNDED = 'refunded', 'مستردشده'
 
     order = models.ForeignKey(Order, verbose_name='سفارش', related_name='payments', on_delete=models.PROTECT)
     amount = models.DecimalField('مبلغ', max_digits=18, decimal_places=0, validators=[MinValueValidator(1)])
     currency = models.CharField('ارز', max_length=3, choices=CURRENCY_CHOICES)
     provider = models.CharField('درگاه', max_length=40, blank=True)
-    status = models.CharField('وضعیت پرداخت', max_length=12, choices=Status.choices, default=Status.INITIATED)
+    status = models.CharField('وضعیت پرداخت', max_length=12, choices=Status.choices, default=Status.INITIATED, db_index=True)
     reference = models.CharField('شناسهٔ پیگیری درگاه', max_length=120, blank=True)
     idempotency_key = models.UUIDField('کلید یکتای درخواست', default=uuid.uuid4, unique=True, editable=False)
+    provider_response_code = models.CharField('کد پاسخ درگاه', max_length=40, blank=True)
+    failure_reason = models.CharField('شرح کوتاه خطا', max_length=250, blank=True)
     initiated_at = models.DateTimeField('زمان شروع', auto_now_add=True)
+    expires_at = models.DateTimeField('مهلت تراکنش', null=True, blank=True)
+    verified_at = models.DateTimeField('زمان تأیید سروری', null=True, blank=True)
     completed_at = models.DateTimeField('زمان تکمیل', null=True, blank=True)
+    updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
 
     class Meta:
         verbose_name = 'تراکنش پرداخت'
         verbose_name_plural = 'تراکنش‌های پرداخت'
         ordering = ('-initiated_at', '-pk')
+        indexes = [models.Index(fields=('order', 'status'), name='payment_order_status_idx')]
 
     def __str__(self):
         return f'{self.order.order_number} — {self.amount} {self.currency} — {self.get_status_display()}'
