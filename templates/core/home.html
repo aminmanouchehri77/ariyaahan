@@ -55,7 +55,7 @@
     <div class="category-grid">
       {% for category in categories %}
       <a class="category-card" href="{{ category.get_absolute_url }}" data-tilt data-reveal style="--reveal-delay: {% widthratio forloop.counter0 1 60 %}ms">
-        <span class="category-card__media"><img src="{% steel_image category 'sm' %}" alt="{{ category.name }}" width="480" height="360" loading="lazy" decoding="async"></span>
+        <span class="category-card__media" data-flight-target="{{ category.slug }}"><img src="{% steel_image category 'sm' %}" alt="{{ category.name }}" width="480" height="360" loading="lazy" decoding="async"></span>
         <span class="category-card__body">
           <strong>{{ category.name }}</strong>
           <span>{{ category.description|default:'مشاهدهٔ فهرست قیمت و مشخصات' }}</span>
